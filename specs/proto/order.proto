@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package everything.order.v1;
+
+// Order Service - Manages coffee orders, menu, and order workflows
+service OrderService {
+  // Health check endpoint
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Health check request
+message HealthCheckRequest {}
+
+// Health check response
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+}
+
+// Future messages (to be implemented):
+// message Order {}
+// message MenuItem {}
+// message OrderRequest {}
+// message OrderResponse {}

@@ -1,0 +1,9 @@
+.build
+.swiftpm
+.netrc
+
+# Build artifacts
+*.swiftmodule
+*.swiftdoc
+
+# IMPORTANT: Generated code IS committed - do NOT ignore */Generated/

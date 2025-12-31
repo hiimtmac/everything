@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package everything.customer.v1;
+
+// Customer Service - Manages customer profiles, favorites, and loyalty
+service CustomerService {
+  // Health check endpoint
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Health check request
+message HealthCheckRequest {}
+
+// Health check response
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+}
+
+// Future messages (to be implemented):
+// message Customer {}
+// message FavoriteDrink {}
+// message CustomerRequest {}
+// message CustomerResponse {}

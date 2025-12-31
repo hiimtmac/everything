@@ -1,0 +1,10 @@
+.vscode/
+.DS_Store
+
+# # Kubernetes secrets
+# k8s/secrets/*.yaml
+# *.secret.yaml
+
+# Environment files
+.env
+.env.local

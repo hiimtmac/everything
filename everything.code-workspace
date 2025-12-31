@@ -1,0 +1,68 @@
+{
+  "folders": [
+    // {
+    //   "name": "Root",
+    //   "path": "."
+    // },
+    {
+      "name": "Server (API Gateway)",
+      "path": "server"
+    },
+    {
+      "name": "Service: Customer",
+      "path": "service-customer"
+    },
+    {
+      "name": "Service: Order",
+      "path": "service-order"
+    },
+    {
+      "name": "Shared (OpenAPI & GRPC)",
+      "path": "shared"
+    },
+    {
+      "name": "Xcode Wrapper",
+      "path": "darwin/shared-wrapper"
+    },
+    {
+      "name": "Apps",
+      "path": "darwin/Everything"
+    },
+    {
+      "name": "Specs",
+      "path": "specs"
+    },
+    {
+      "name": "Support",
+      "path": "support"
+    },
+    {
+      "name": "Observability",
+      "path": "observability"
+    },
+    {
+      "name": "Workflows",
+      "path": "workflows"
+    },
+    {
+      "name": "Github",
+      "path": ".github"
+    }
+  ],
+  "settings": {
+    // Disable Swift extension at root level to prevent conflicts
+    "swift.disableAutoResolve": true,
+    "swift.autoGenerateLaunchConfigurations": false,
+    "swift.disableSwiftPackageManagerIntegration": true,
+    "swift.searchSubfoldersForPackages": false,
+
+    // Each subfolder will use its own Swift LSP instance
+    "[swift]": {
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "swiftlang.swift-vscode"
+    }
+  },
+  "extensions": {
+    "recommendations": ["swiftlang.swift-vscode"]
+  }
+}

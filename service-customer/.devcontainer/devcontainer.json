@@ -1,0 +1,63 @@
+{
+  "name": "everything-customer-devcontainer",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "service",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": "false",
+      "username": "vscode",
+      // "userUid": "1000",
+      // "userGid": "1000"
+      "upgradePackages": "false"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "os-provided",
+      "ppa": "false"
+    },
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "customizations": {
+    "vscode": {
+      // Set *default* container specific settings.json values on container create.
+      "settings": {
+        "lldb.library": "/usr/lib/liblldb.so"
+      },
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": ["swiftlang.swift-vscode", "anthropic.claude-code"]
+    }
+  },
+
+  "forwardPorts": [
+    50052
+    // 5432,
+    // 6379
+  ],
+  "portsAttributes": {
+    "50052": {
+      "label": "service",
+      "onAutoForward": "silent"
+    }
+    // "5432": {
+    //   "label": "db",
+    //   "onAutoForward": "silent"
+    // }
+    // "6379": {
+    //   "label": "cache",
+    //   "onAutoForward": "silent"
+    // }
+  },
+
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/root/.claude,type=volume",
+    "target=/workspace/.build,type=volume",
+    "target=/workspace/.swiftpm,type=volume"
+  ],
+
+  "remoteUser": "root",
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/root/.claude"
+  }
+}

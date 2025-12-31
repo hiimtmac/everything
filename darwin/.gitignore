@@ -1,0 +1,22 @@
+# Xcode
+xcuserdata/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Code signing (do NOT commit)
+*.mobileprovision
+*.p12
+*.cer
+*.xcconfig
+
+# iOS runtime
+*.hprof

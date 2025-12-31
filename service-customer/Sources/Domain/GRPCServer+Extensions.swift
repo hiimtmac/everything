@@ -1,0 +1,3 @@
+import GRPCServer
+
+typealias CustomerServiceServer = Homebrews_Customer_V1_CustomerService.ServiceProtocol

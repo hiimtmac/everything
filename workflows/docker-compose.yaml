@@ -1,0 +1,104 @@
+services:
+  # Temporal Server
+  temporal:
+    image: temporalio/server:latest
+    environment:
+      - DB=postgres12
+      - DBNAME=temporal
+      - DB_PORT=5432
+      - POSTGRES_SEEDS=db
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=password
+      - VISIBILITY_DBNAME=temporal_visibility
+      - VISIBILITY_DB_PORT=5432
+      - VISIBILITY_POSTGRES_SEEDS=db
+      - VISIBILITY_POSTGRES_USER=temporal
+      - VISIBILITY_POSTGRES_PWD=password
+    volumes:
+      - ./docker.yaml:/etc/temporal/config/dynamicconfig/docker.yaml
+    # ports:
+    #   - "7233:7233"
+    networks:
+      - everything-network
+      - everything-workflows-network
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
+
+  # Persistent Storage
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: password
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - everything-workflows-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  temporal-setup:
+    image: temporalio/admin-tools:latest
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - DEFAULT_NAMESPACE=default
+      - DBNAME=temporal
+      - DB_PORT=5432
+      - POSTGRES_SEEDS=db
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=password
+      - VISIBILITY_DBNAME=temporal_visibility
+      - VISIBILITY_DB_PORT=5432
+      - VISIBILITY_POSTGRES_SEEDS=db
+      - VISIBILITY_POSTGRES_USER=temporal
+      - VISIBILITY_POSTGRES_PWD=password
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "sh /scripts/setup-postgres.sh && sh /scripts/create-namespace.sh"
+    volumes:
+      - ./create-namespace.sh:/scripts/create-namespace.sh
+      - ./setup-postgres.sh:/scripts/setup-postgres.sh
+    networks:
+      - everything-workflows-network
+    depends_on:
+      db:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - 8002:8080
+    networks:
+      - everything-workflows-network
+    depends_on:
+      - temporal
+
+networks:
+  everything-network:
+    external: true
+    name: everything-network
+  everything-workflows-network:
+    driver: bridge
+    name: everything-workflows-network
+
+volumes:
+  db-data:

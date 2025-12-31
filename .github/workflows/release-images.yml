@@ -1,0 +1,107 @@
+name: Release Images
+
+on:
+  push:
+    tags:
+      - "server@*"
+      - "order@*"
+      - "customer@*"
+      - "v*"
+  workflow_dispatch: # Allow manual triggers
+    inputs:
+      tag:
+        description: "Tag to build (e.g., server@1.2.3 or v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  parse-tag:
+    name: Parse Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.parse.outputs.service }}
+      version: ${{ steps.parse.outputs.version }}
+      build-server: ${{ steps.parse.outputs.build-server }}
+      build-order: ${{ steps.parse.outputs.build-order }}
+      build-customer: ${{ steps.parse.outputs.build-customer }}
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+
+          echo "Processing tag: $TAG"
+
+          # Check if it's a v* tag (all services)
+          if [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "service=all" >> $GITHUB_OUTPUT
+            echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+            echo "build-server=true" >> $GITHUB_OUTPUT
+            echo "build-order=true" >> $GITHUB_OUTPUT
+            echo "build-customer=true" >> $GITHUB_OUTPUT
+          # Check if it's a service@version tag
+          elif [[ $TAG =~ ^([a-z]+)@([0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
+            SERVICE="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+            echo "service=$SERVICE" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "build-server=$([ "$SERVICE" = "server" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "build-order=$([ "$SERVICE" = "order" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "build-customer=$([ "$SERVICE" = "customer" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Invalid tag format. Use 'service@1.2.3' or 'v1.2.3'"
+            exit 1
+          fi
+
+  build-server:
+    name: Build Server Release
+    needs: parse-tag
+    if: needs.parse-tag.outputs.build-server == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Server
+      service_dir: server
+      image_name: server
+      tag_type: semver
+      version: ${{ needs.parse-tag.outputs.version }}
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64
+
+  build-order:
+    name: Build Order Service Release
+    needs: parse-tag
+    if: needs.parse-tag.outputs.build-order == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Order Service
+      service_dir: service-order
+      image_name: order
+      tag_type: semver
+      version: ${{ needs.parse-tag.outputs.version }}
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64
+
+  build-customer:
+    name: Build Customer Service Release
+    needs: parse-tag
+    if: needs.parse-tag.outputs.build-customer == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Customer Service
+      service_dir: service-customer
+      image_name: customer
+      tag_type: semver
+      version: ${{ needs.parse-tag.outputs.version }}
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64

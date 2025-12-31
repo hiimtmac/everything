@@ -1,0 +1,13 @@
+.build
+.swiftpm
+.netrc
+
+# Build artifacts
+*.swiftmodule
+*.swiftdoc
+
+# Server runtime
+*.log
+
+# Symlink to shared package (for Docker compatibility)
+shared

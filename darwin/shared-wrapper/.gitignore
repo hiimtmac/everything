@@ -1,0 +1,10 @@
+.build
+.swiftpm
+.netrc
+
+# Build artifacts
+*.swiftmodule
+*.swiftdoc
+
+# Service runtime
+*.log

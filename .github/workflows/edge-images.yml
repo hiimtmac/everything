@@ -1,0 +1,96 @@
+name: Build Edge Images
+
+on:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "server/**"
+  #     - "service-order/**"
+  #     - "service-customer/**"
+  #     - "shared/**"
+  #     - "specs/**"
+  #     - ".github/workflows/build-images.yml"
+  #     - ".github/workflows/_build-service.yml"
+  workflow_dispatch: # Allow manual triggers
+
+# Cancel in-progress runs when a new push occurs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      order: ${{ steps.filter.outputs.order }}
+      customer: ${{ steps.filter.outputs.customer }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check path filters
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'shared/**'
+              - 'specs/**'
+            server:
+              - 'server/**'
+              - 'specs/openapi/**'
+            order:
+              - 'service-order/**'
+              - 'specs/proto/order.proto'
+            customer:
+              - 'service-customer/**'
+              - 'specs/proto/customer.proto'
+
+  build-server:
+    name: Build Server Image
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true' || needs.detect-changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Server
+      service_dir: server
+      image_name: server
+      tag_type: edge
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64
+
+  build-order:
+    name: Build Order Service Image
+    needs: detect-changes
+    if: needs.detect-changes.outputs.order == 'true' || needs.detect-changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Order Service
+      service_dir: service-order
+      image_name: order
+      tag_type: edge
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64
+
+  build-customer:
+    name: Build Customer Service Image
+    needs: detect-changes
+    if: needs.detect-changes.outputs.customer == 'true' || needs.detect-changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-service.yml
+    with:
+      service_name: Customer Service
+      service_dir: service-customer
+      image_name: customer
+      tag_type: edge
+      platforms: linux/arm64
+      # Uncomment for multi-arch when needed:
+      # platforms: linux/amd64,linux/arm64
