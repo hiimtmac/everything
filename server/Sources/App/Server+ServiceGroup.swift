@@ -1,75 +1,71 @@
 import Configuration
-import GRPCClient
-import GRPCCore
-import GRPCNIOTransportHTTP2
-import GRPCOTelTracingInterceptors
-import GRPCServiceLifecycle
 import Hummingbird
 import HummingbirdValkey
 import Logging
 import OTel
+import ProfileRecorderServer
 import ServiceLifecycle
 import UnixSignals
 import Valkey
 
 func buildServiceGroup(
-    reader: ConfigReader,
-    logger: inout Logger
+    reader: ConfigReader
 ) async throws -> ServiceGroup {
-    // TODO give services their own loggers
-    logger.logLevel = reader.string(forKey: "log.level", as: Logger.Level.self, default: .info)
+    // OTEL - must be bootstrapped BEFORE creating loggers or traced services
+    let observability = try OTel.bootstrap(reader: reader.scoped(to: "otel"))
 
-    let orderClient = try GRPCClient(
-        transport: HTTP2ClientTransport.Posix(reader: reader.scoped(to: "order")),
-        interceptors: [
-            ClientOTelTracingInterceptor(
-                reader: reader.scoped(to: "otel.client"),
-                serverHostname: "order"
-            )
-        ]
-    )
-    let orderService = Homebrews_Order_V1_OrderService.Client(wrapping: orderClient)
+    let logLevel = reader.string(forKey: "log.level", as: Logger.Level.self, default: .info)
 
-    let customerClient = try GRPCClient(
-        transport: HTTP2ClientTransport.Posix(reader: reader.scoped(to: "customer")),
-        interceptors: [
-            ClientOTelTracingInterceptor(
-                reader: reader.scoped(to: "otel.client"),
-                serverHostname: "customer"
-            )
-        ]
-    )
-    let customerService = Homebrews_Customer_V1_CustomerService.Client(wrapping: customerClient)
+    // GRPC
+    let orderService = try GRPCService.orderSerivce(reader: reader.scoped(to: "order"))
+    let customerService = try GRPCService.customerService(reader: reader.scoped(to: "customer"))
 
+    // Server
     let router = try buildRouter(
         orderService: orderService,
         customerService: customerService
     )
 
+    var appLogger = Logger(label: "server")
+    appLogger.logLevel = logLevel
     let app = Application(
         router: router,
         configuration: ApplicationConfiguration(reader: reader.scoped(to: "http")),
-        logger: logger
+        logger: appLogger
     )
 
-    let observability = try OTel.bootstrap(reader: reader.scoped(to: "otel.server"))
-
+    // Valkey
+    var valkeyLogger = Logger(label: "valkey")
+    valkeyLogger.logLevel = logLevel
     let valkeyClient = try ValkeyClient(
         reader: reader.scoped(to: "valkey"),
-        logger: logger
+        logger: valkeyLogger
     )
 
     // let persist = ValkeyPersistDriver(client: valkeyClient)
 
+    // Profiler
+    var profileLogger = Logger(label: "profiler")
+    profileLogger.logLevel = logLevel
+    async let _ = ProfileRecorderServer
+        .init(configuration: .parseFromEnvironment())
+        .runIgnoringFailures(logger: profileLogger)
+
+    // Service Group
+    var serviceLogger = Logger(label: "servicegroup")
+    serviceLogger.logLevel = logLevel
+
+    // Note (from claude): gRPC clients connect lazily on first RPC, so they don't need to be                                                                                              
+    // managed as services in the ServiceGroup. Adding them causes shutdown hangs                                                                                            
+    // when remote services aren't available. Keep references alive by storing them                                                                                          
+    // in variables above (orderClient, customerClient). They'll clean up on exit.     
     return ServiceGroup(
         services: [
             app,
-            orderClient,
-            customerClient,
             observability,
             valkeyClient
         ],
         gracefulShutdownSignals: [.sigterm, .sigint],
-        logger: logger
+        logger: serviceLogger
     )
 }

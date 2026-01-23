@@ -49,7 +49,7 @@ services:
       - "-config.file=/etc/tempo.yaml"
     volumes:
       - ./tempo.yaml:/etc/tempo.yaml
-      - tempo-data:/tmp/tempo
+      - tempo-data:/var/tempo
     ports:
       - "3200:3200"
     networks:

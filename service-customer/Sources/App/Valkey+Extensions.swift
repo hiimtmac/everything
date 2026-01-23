@@ -4,10 +4,11 @@ import Valkey
 
 extension ValkeyClient {
     convenience init(reader: ConfigReader, logger: Logger) throws {
+        let snapshot = reader.snapshot()
         try self.init(
             .hostname(
-                reader.requiredString(forKey: "host"),
-                port: reader.int(forKey: "port", default: 6379)
+                snapshot.requiredString(forKey: "host"),
+                port: snapshot.int(forKey: "port", default: 6379)
             ),
             logger: logger
         )

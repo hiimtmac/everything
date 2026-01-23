@@ -7,7 +7,7 @@ FROM swift:6.2 as builder
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
     && apt-get -q dist-upgrade -y \
-    && apt-get install -y libjemalloc-dev \
+    && apt-get install -y libjemalloc-dev libssl-dev libsasl2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up a build area
@@ -25,7 +25,7 @@ COPY . .
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 RUN swift build -c release \
-    --product "Service" \
+    --product "App" \
     --static-swift-stdlib \
     -Xlinker -ljemalloc
 
@@ -33,7 +33,7 @@ RUN swift build -c release \
 WORKDIR /staging
 
 # Copy main executable to staging area
-RUN cp "$(swift build --package-path /build -c release --show-bin-path)/Service" ./
+RUN cp "$(swift build --package-path /build -c release --show-bin-path)/App" ./
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
@@ -54,6 +54,8 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
       libjemalloc2 \
       ca-certificates \
       tzdata \
+      openssl \
+      libsasl2-2 \
 # If your app or its dependencies import FoundationNetworking, also install `libcurl4`.
       # libcurl4 \
 # If your app or its dependencies import FoundationXML, also install `libxml2`.
@@ -61,7 +63,7 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && rm -r /var/lib/apt/lists/*
 
 # Create a service user and group with /app as its home directory
-RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app service
+RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app app
 
 # Switch to the new home directory
 WORKDIR /app
@@ -73,11 +75,11 @@ COPY --from=builder --chown=service:service /staging /app
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
 
 # Ensure all further commands run as the service user
-USER service:service
+USER app:app
 
 # Let Docker bind to port 50051
 EXPOSE 50051
 
 # Start the customer service when the image is run, default to listening on 50051 in production environment
-ENTRYPOINT ["./Service"]
+ENTRYPOINT ["./App"]
 CMD ["--host", "0.0.0.0", "--port", "50051"]

@@ -1,3 +1,3 @@
-import GRPCServer
+package import GRPCServer
 
-typealias OrderServiceServer = Homebrews_Order_V1_OrderService.ServiceProtocol
+package typealias OrderServiceServer = Everything_Order_V1_OrderService.SimpleServiceProtocol

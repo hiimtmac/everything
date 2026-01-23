@@ -3,6 +3,7 @@ services:
     image: swift:6.2
     volumes:
       - ..:/workspace:cached
+      - ../../shared:/workspace/shared
     command: sleep infinity
     networks:
       - everything-network

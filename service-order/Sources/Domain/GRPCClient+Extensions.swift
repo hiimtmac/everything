@@ -1,3 +1,3 @@
 package import GRPCClient
 
-package typealias CustomerServiceClient = Homebrews_Customer_V1_CustomerService.ClientProtocol
+package typealias CustomerServiceClient = Everything_Customer_V1_CustomerService.ClientProtocol

@@ -19,7 +19,7 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
-        .executable(name: "Service", targets: ["Service"])
+        .executable(name: "App", targets: ["App"])
     ],
     dependencies: [
         .package(path: "shared", traits: ["GRPCServer", "GRPCClient"]),
@@ -39,7 +39,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "Service",
+            name: "App",
             dependencies: [
                 .target(name: "Domain"),
                 .product(name: "Configuration", package: "swift-configuration"),
@@ -51,7 +51,7 @@ let package = Package(
                 .product(name: "GRPCReflectionService", package: "grpc-swift-extras"),
                 .product(name: "GRPCHealthService", package: "grpc-swift-extras"),
                 .product(name: "GRPCServiceLifecycle", package: "grpc-swift-extras"),
-                .product(name: "Jobs", package: "swift-jobs"),
+                // .product(name: "Jobs", package: "swift-jobs"),
                 .product(name: "JobsValkey", package: "swift-jobs-valkey"),
                 .product(name: "Kafka", package: "swift-kafka-client"),
                 .product(name: "PostgresNIO", package: "postgres-nio"),

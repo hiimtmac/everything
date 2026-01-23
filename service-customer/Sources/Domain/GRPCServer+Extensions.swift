@@ -1,3 +1,3 @@
-import GRPCServer
+package import GRPCServer
 
-typealias CustomerServiceServer = Homebrews_Customer_V1_CustomerService.ServiceProtocol
+package typealias CustomerServiceServer = Everything_Customer_V1_CustomerService.SimpleServiceProtocol

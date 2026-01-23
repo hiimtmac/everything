@@ -1,12 +1,9 @@
 import Configuration
-import Foundation
-import Logging
 import ServiceLifecycle
-import ProfileRecorderServer
 import SystemPackage
 
 @main
-struct Service {
+struct App {
     static func main() async throws {
         let reader = try await ConfigReader(providers: [
             CommandLineArgumentsProvider(),
@@ -15,12 +12,7 @@ struct Service {
             InMemoryProvider(values: [:])
         ])
 
-        var logger = Logger(label: "order-service")
-        let serviceGroup = try await buildServiceGroup(reader: reader, logger: &logger)
-        
-        async let _ = ProfileRecorderServer(configuration: .parseFromEnvironment())
-            .runIgnoringFailures(logger: logger)
-
+        let serviceGroup = try await buildServiceGroup(reader: reader)
         try await serviceGroup.run()
     }
 }

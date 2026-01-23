@@ -1,6 +1,4 @@
 import Configuration
-import Logging
-import ProfileRecorderServer
 import ServiceLifecycle
 import SystemPackage
 
@@ -12,17 +10,11 @@ struct Server {
             EnvironmentVariablesProvider(),
             EnvironmentVariablesProvider(environmentFilePath: ".env", allowMissing: true),
             InMemoryProvider(values: [
-                "http.serverName": "server",
-                "otel.server.serverName": "server",
+                "http.serverName": "server"
             ]),
         ])
 
-        var logger = Logger(label: "server")
-        let serviceGroup = try await buildServiceGroup(reader: reader, logger: &logger)
-
-        async let _ = ProfileRecorderServer(configuration: .parseFromEnvironment())
-            .runIgnoringFailures(logger: logger)
-
+        let serviceGroup = try await buildServiceGroup(reader: reader)
         try await serviceGroup.run()
     }
 }

@@ -1,6 +1,7 @@
 package import GRPCCore
 package import GRPCShared
 import GRPCServer
+import SwiftProtobuf
 
 package struct ServiceImplementation: OrderServiceServer {
     let customerService: any CustomerServiceClient
@@ -12,9 +13,12 @@ package struct ServiceImplementation: OrderServiceServer {
     }
     
     package func healthCheck(
-        request: ServerRequest<Homebrews_Order_V1_HealthCheckRequest>,
+        request: Everything_Order_V1_HealthCheckRequest,
         context: ServerContext
-    ) async throws -> ServerResponse<Homebrews_Order_V1_HealthCheckResponse> {
-        fatalError()
+    ) async throws -> Everything_Order_V1_HealthCheckResponse {
+        .with {
+            $0.status = "SERVING"
+            $0.service = "order"
+        }
     }
 }

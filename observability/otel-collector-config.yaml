@@ -1,32 +1,17 @@
 receivers:
   otlp:
     protocols:
-      # grpc:
-      #   endpoint: 0.0.0.0:4317
+      grpc:
+        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
-processors:
-  batch:
-    timeout: 10s
-
-  memory_limiter:
-    check_interval: 1s
-    limit_mib: 512
-
-  # Add resource attributes for better filtering in Loki
-  resource:
-    attributes:
-      - key: loki.resource.labels
-        value: service.name, service.namespace
-        action: insert
-
 exporters:
-  # Prometheus - metrics
-  prometheusremotewrite:
-    endpoint: http://prometheus:9090/api/v1/write
-    tls:
-      insecure: true
+  debug:
+    verbosity: basic
+
+  prometheus:
+    endpoint: 0.0.0.0:7070
 
   # Loki - logs
   otlphttp/loki:
@@ -40,26 +25,14 @@ exporters:
     tls:
       insecure: true
 
-  # Debug exporter (optional, for troubleshooting)
-  debug:
-    verbosity: detailed
-
 service:
   pipelines:
-    # Metrics pipeline
-    metrics:
-      receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [prometheusremotewrite]
-
-    # Logs pipeline
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
-      exporters: [otlphttp/loki]
-
-    # Traces pipeline
+      exporters: [otlphttp/loki, debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheus, debug]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlp/tempo]
+      exporters: [otlp/tempo, debug]
