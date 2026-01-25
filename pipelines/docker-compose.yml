@@ -25,15 +25,6 @@ services:
     networks:
       - everything-network
       - everything-pipeline-network
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-broker-api-versions.sh --bootstrap-server localhost:9092",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   kafka-ui:
     image: kafbat/kafka-ui:latest
@@ -50,7 +41,7 @@ services:
 
 networks:
   everything-network:
-    driver: bridge
+    external: true
     name: everything-network
   everything-pipeline-network:
     driver: bridge

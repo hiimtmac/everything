@@ -10,11 +10,11 @@
     },
     {
       "name": "Service: Customer",
-      "path": "service-customer"
+      "path": "customer"
     },
     {
       "name": "Service: Order",
-      "path": "service-order"
+      "path": "order"
     },
     {
       "name": "Shared (OpenAPI & GRPC)",
@@ -29,19 +29,19 @@
       "path": "darwin/Everything"
     },
     {
-      "name": "Specs",
-      "path": "specs"
-    },
-    {
       "name": "Support",
       "path": "support"
     },
     {
-      "name": "Observability",
+      "name": "Observability (OTel)",
       "path": "observability"
     },
     {
-      "name": "Workflows",
+      "name": "Pipelines (Kafka)",
+      "path": "pipelines"
+    },
+    {
+      "name": "Workflows (Temporal)",
       "path": "workflows"
     },
     {

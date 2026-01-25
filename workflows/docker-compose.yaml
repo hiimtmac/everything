@@ -22,13 +22,8 @@ services:
       - everything-network
       - everything-workflows-network
     depends_on:
-      - db
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7233"]
-      interval: 5s
-      timeout: 3s
-      start_period: 30s
-      retries: 60
+      temporal-db-setup:
+        condition: service_completed_successfully
 
   # Persistent Storage
   db:
@@ -49,11 +44,10 @@ services:
       retries: 5
       start_period: 30s
 
-  temporal-setup:
+  # Runs BEFORE temporal server - creates databases and schemas
+  temporal-db-setup:
     image: temporalio/admin-tools:latest
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - DEFAULT_NAMESPACE=default
       - DBNAME=temporal
       - DB_PORT=5432
       - POSTGRES_SEEDS=db
@@ -68,17 +62,33 @@ services:
       - "/bin/sh"
       - "-c"
     command:
-      - "sh /scripts/setup-postgres.sh && sh /scripts/create-namespace.sh"
+      - "sh /scripts/setup-postgres.sh"
     volumes:
-      - ./create-namespace.sh:/scripts/create-namespace.sh
       - ./setup-postgres.sh:/scripts/setup-postgres.sh
     networks:
       - everything-workflows-network
     depends_on:
       db:
         condition: service_healthy
-      temporal:
-        condition: service_healthy
+
+  # Runs AFTER temporal server - creates namespace
+  temporal-ns-setup:
+    image: temporalio/admin-tools:latest
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - DEFAULT_NAMESPACE=default
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "sh /scripts/create-namespace.sh"
+    volumes:
+      - ./create-namespace.sh:/scripts/create-namespace.sh
+    networks:
+      - everything-workflows-network
+    depends_on:
+      - temporal
+    restart: on-failure
 
   temporal-ui:
     image: temporalio/ui:latest
