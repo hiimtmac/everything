@@ -1,0 +1,111 @@
+---
+# Common setup for all Raspberry Pi nodes
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Update /etc/hosts with hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^127.0.1.1"
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name: "{{ required_packages }}"
+    state: present
+
+- name: Disable swap
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Disable swap service
+  ansible.builtin.systemd:
+    name: dphys-swapfile
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: Check if cgroups already configured
+  ansible.builtin.shell: grep -q "cgroup_memory=1" {{ cmdline_file }}
+  register: cgroups_configured
+  changed_when: false
+  failed_when: false
+  when: enable_cgroups
+
+- name: Read current cmdline
+  ansible.builtin.slurp:
+    src: "{{ cmdline_file }}"
+  register: cmdline_content
+  when:
+    - enable_cgroups
+    - cgroups_configured.rc != 0
+
+- name: Enable cgroups for k3s (required for Raspberry Pi)
+  ansible.builtin.copy:
+    content: "{{ (cmdline_content.content | b64decode | trim) }} cgroup_memory=1 cgroup_enable=memory\n"
+    dest: "{{ cmdline_file }}"
+    mode: '0644'
+  when:
+    - enable_cgroups
+    - cgroups_configured.rc != 0
+  notify: reboot
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Load overlay module
+  community.general.modprobe:
+    name: overlay
+    state: present
+
+- name: Load br_netfilter module
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Ensure required modules load on boot
+  ansible.builtin.copy:
+    content: |
+      overlay
+      br_netfilter
+    dest: /etc/modules-load.d/k8s.conf
+    mode: '0644'
+
+- name: Enable bridge-nf-call-iptables
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-ip6tables

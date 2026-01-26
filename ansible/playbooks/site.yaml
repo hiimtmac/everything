@@ -1,0 +1,29 @@
+---
+# Full cluster setup: common + k3s installation
+# Usage: ansible-playbook playbooks/site.yaml
+
+- name: Prepare all nodes
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - common
+
+- name: Install k3s server (control plane)
+  hosts: k3s_server
+  become: true
+  roles:
+    - k3s-server
+
+- name: Install k3s agents (worker nodes)
+  hosts: k3s_agents
+  become: true
+  serial: 1  # Install agents one at a time to avoid token issues
+  roles:
+    - k3s-agent
+
+- name: Verify cluster
+  hosts: k3s_server
+  become: true
+  tasks:
+    - name: Verify cluster is ready
+      ansible.builtin.include_tasks: tasks/verify-cluster.yaml

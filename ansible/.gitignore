@@ -1,0 +1,8 @@
+# Ansible fact cache
+.ansible_cache/
+
+# Retry files
+*.retry
+
+# Log files
+*.log

@@ -1,0 +1,32 @@
+---
+# k3s Configuration
+k3s_version: "v1.35.0+k3s1"  # Check https://github.com/k3s-io/k3s/releases for latest
+
+# Cluster settings
+cluster_name: "everything"
+cluster_domain: "cluster.local"
+
+# k3s server (control plane) settings
+k3s_server_extra_args: >-
+  --disable traefik
+  --disable servicelb
+  --write-kubeconfig-mode 644
+  --tls-san {{ hostvars[groups['k3s_server'][0]]['ansible_host'] }}
+
+# k3s agent (worker) settings
+k3s_agent_extra_args: ""
+
+# System settings
+timezone: "America/New_York"  # UPDATE: Your timezone
+
+# Package requirements (minimal set for k3s operation)
+required_packages:
+  - curl
+  - nfs-common
+  - open-iscsi
+
+# cgroup settings for Raspberry Pi (required for k3s)
+enable_cgroups: true
+# NOTE: Raspberry Pi OS Bookworm+ uses /boot/firmware/cmdline.txt
+# Older versions (Bullseye and earlier) use /boot/cmdline.txt
+cmdline_file: /boot/firmware/cmdline.txt

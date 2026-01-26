@@ -1,0 +1,27 @@
+---
+# Shared task to verify cluster is ready
+# Included by site.yaml and k3s-install.yaml
+
+- name: Wait for all nodes to be ready
+  ansible.builtin.shell: |
+    kubectl get nodes --no-headers | grep -v "NotReady" | wc -l
+  register: ready_nodes
+  until: ready_nodes.stdout | int >= groups['k3s_cluster'] | length
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Display cluster nodes
+  ansible.builtin.command: kubectl get nodes -o wide
+  register: nodes_output
+  changed_when: false
+
+- name: Show cluster status
+  ansible.builtin.debug:
+    msg: |
+      Cluster is ready!
+      {{ nodes_output.stdout }}
+
+      To connect from your local machine:
+      export KUBECONFIG=~/.kube/config-{{ cluster_name }}
+      kubectl get nodes

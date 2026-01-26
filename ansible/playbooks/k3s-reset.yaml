@@ -1,0 +1,68 @@
+---
+# Uninstall k3s from all nodes (tear down cluster)
+# Usage: ansible-playbook playbooks/k3s-reset.yaml
+# WARNING: This will delete all cluster data!
+
+- name: Confirm reset
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Confirm destructive action
+      ansible.builtin.pause:
+        prompt: |
+          WARNING: This will completely uninstall k3s and delete all cluster data!
+          Press Enter to continue or Ctrl+C to abort
+
+- name: Uninstall k3s agents
+  hosts: k3s_agents
+  become: true
+  tasks:
+    - name: Check if k3s-agent-uninstall script exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/k3s-agent-uninstall.sh
+      register: agent_uninstall_script
+
+    - name: Run k3s agent uninstall script
+      ansible.builtin.command: /usr/local/bin/k3s-agent-uninstall.sh
+      when: agent_uninstall_script.stat.exists
+      ignore_errors: true
+
+- name: Uninstall k3s server
+  hosts: k3s_server
+  become: true
+  tasks:
+    - name: Check if k3s-uninstall script exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/k3s-uninstall.sh
+      register: server_uninstall_script
+
+    - name: Run k3s server uninstall script
+      ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      when: server_uninstall_script.stat.exists
+      ignore_errors: true
+
+- name: Cleanup all nodes
+  hosts: k3s_cluster
+  become: true
+  tasks:
+    - name: Remove k3s data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/rancher
+        - /etc/rancher
+        - /var/lib/kubelet
+      ignore_errors: true
+
+    - name: Remove local kubeconfig
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.kube/config-{{ cluster_name }}"
+        state: absent
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: "k3s has been uninstalled from {{ inventory_hostname }}"

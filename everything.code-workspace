@@ -45,6 +45,14 @@
       "path": "workflows"
     },
     {
+      "name": "Kubernetes",
+      "path": "k8s"
+    },
+    {
+      "name": "Ansible",
+      "path": "ansible"
+    },
+    {
       "name": "Github",
       "path": ".github"
     }
