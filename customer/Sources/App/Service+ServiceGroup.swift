@@ -19,10 +19,13 @@ func buildServiceGroup(
 
     let logLevel = reader.string(forKey: "log.level", as: Logger.Level.self, default: .info)
     
+    var grpcLogger = Logger(label: "grpc")
+    grpcLogger.logLevel = logLevel
     let service = ServiceImplementation()
     let server = try GRPCService.customerService(
         reader: reader.scoped(to: "grpc"),
-        service: service
+        service: service,
+        logger: grpcLogger
     )
 
     // Valkey

@@ -1,5 +1,5 @@
 {
-  "originHash" : "0c9edbde366c4262574221bc22fe515d77ce0dceea2f2cdad4d424f138a4cf12",
+  "originHash" : "ea84623f7c558edcc8093eb04c9b02edbee8774907badb7ad943d796244db085",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -204,8 +204,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "bc386b95f2a16ccd0150a8235e7c69eab2b866ca",
-        "version" : "1.8.0"
+        "revision" : "2778fd4e5a12a8aaa30a3ee8285f4ce54c5f3181",
+        "version" : "1.9.1"
       }
     },
     {
@@ -285,8 +285,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-otel/swift-otel-semantic-conventions.git",
       "state" : {
-        "revision" : "69185e48088c4abdd438b74d332d103431849f63",
-        "version" : "1.38.0"
+        "revision" : "ebd87780e23f0c99c5fa45df448635416cc9a1cb",
+        "version" : "1.39.0"
       }
     },
     {

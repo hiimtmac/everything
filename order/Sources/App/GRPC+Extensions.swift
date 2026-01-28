@@ -8,6 +8,8 @@ import GRPCNIOTransportHTTP2
 import GRPCOTelTracingInterceptors
 import GRPCReflectionService
 import GRPCServiceLifecycle
+import Logging
+import OTelSemanticConventions
 import ServiceLifecycle
 
 // Metrics Interceptors https://github.com/grpc/grpc-swift-extras/pull/62
@@ -15,18 +17,21 @@ import ServiceLifecycle
 enum GRPCService {
     static func orderService(
         reader: ConfigReader,
-        service: ServiceImplementation
+        service: ServiceImplementation,
+        logger: Logger
     ) throws -> some Service {
         try GRPCServer(
             reader: reader,
-            service: service
+            service: service,
+            logger: logger
         )
     }
 
     static func customerService(
-        reader: ConfigReader
+        reader: ConfigReader,
+        logger: Logger
     ) throws -> some CustomerServiceClient {
-        let client = try GRPCClient(reader: reader)
+        let client = try GRPCClient(reader: reader, logger: logger)
         let service = Everything_Customer_V1_CustomerService.Client(wrapping: client)
         return service
     }
@@ -35,7 +40,8 @@ enum GRPCService {
 extension GRPCServer where Transport == HTTP2ServerTransport.Posix {
     fileprivate convenience init(
         reader: ConfigReader,
-        service: ServiceImplementation
+        service: ServiceImplementation,
+        logger: Logger
     ) throws {
         let health = HealthService()
 
@@ -50,22 +56,22 @@ extension GRPCServer where Transport == HTTP2ServerTransport.Posix {
                 service,
             ],
             interceptors: [
-                ServerOTelTracingInterceptor(reader: reader.scoped(to: "otel")),
-                // TODO: ServerMetricsInterceptor(),
-                // TODO: ServerLoggingInterceptor()
+                ServerOTelTracingInterceptor(reader: reader.scoped(to: "tracing")),
+                ServerOTelMetricsInterceptor(reader: reader.scoped(to: "metrics")),
+                ServerOTelLoggingInterceptor(reader: reader.scoped(to: "logging"), logger: logger),
             ]
         )
     }
 }
 
 extension GRPCClient where Transport == HTTP2ClientTransport.Posix {
-    fileprivate convenience init(reader: ConfigReader) throws {
+    fileprivate convenience init(reader: ConfigReader, logger: Logger) throws {
         try self.init(
             transport: HTTP2ClientTransport.Posix(reader: reader.scoped(to: "service")),
             interceptors: [
-                ClientOTelTracingInterceptor(reader: reader.scoped(to: "otel")),
-                // TODO: ClientMetricsInterceptor(),
-                // TODO: ClientLoggingInterceptor()
+                ClientOTelTracingInterceptor(reader: reader.scoped(to: "tracing")),
+                ClientOTelMetricsInterceptor(reader: reader.scoped(to: "metrics")),
+                ClientOTelLoggingInterceptor(reader: reader.scoped(to: "logging"), logger: logger),
             ]
         )
     }
@@ -108,6 +114,29 @@ extension ClientOTelTracingInterceptor {
     }
 }
 
+extension ClientOTelMetricsInterceptor {
+    fileprivate init(reader: ConfigReader) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
+        )
+    }
+}
+
+extension ClientOTelLoggingInterceptor {
+    fileprivate init(reader: ConfigReader, logger: Logger) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            logger: logger,
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
+            includeRequestMetadata: snapshot.bool(forKey: "includeRequestMetadata", default: false),
+            includeResponseMetadata: snapshot.bool(forKey: "includeResponseMetadata", default: false)
+        )
+    }
+}
+
 extension ServerOTelTracingInterceptor {
     fileprivate init(reader: ConfigReader) throws {
         let snapshot = reader.snapshot()
@@ -115,6 +144,29 @@ extension ServerOTelTracingInterceptor {
             serverHostname: snapshot.requiredString(forKey: "serverHostname"),
             networkTransportMethod: snapshot.string(forKey: "transportMethod", default: "tcp"),
             traceEachMessage: snapshot.bool(forKey: "traceEachMessage", default: true),
+            includeRequestMetadata: snapshot.bool(forKey: "includeRequestMetadata", default: false),
+            includeResponseMetadata: snapshot.bool(forKey: "includeResponseMetadata", default: false)
+        )
+    }
+}
+
+extension ServerOTelMetricsInterceptor {
+    fileprivate init(reader: ConfigReader) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
+        )
+    }
+}
+
+extension ServerOTelLoggingInterceptor {
+    fileprivate init(reader: ConfigReader, logger: Logger) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            logger: logger,
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
             includeRequestMetadata: snapshot.bool(forKey: "includeRequestMetadata", default: false),
             includeResponseMetadata: snapshot.bool(forKey: "includeResponseMetadata", default: false)
         )

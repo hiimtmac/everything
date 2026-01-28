@@ -7,12 +7,15 @@ import GRPCNIOTransportHTTP2
 import GRPCOTelTracingInterceptors
 import GRPCReflectionService
 import GRPCServiceLifecycle
+import Logging
 import ServiceLifecycle
+import OTelSemanticConventions
 
 enum GRPCService {
     static func customerService(
         reader: ConfigReader,
-        service: ServiceImplementation
+        service: ServiceImplementation,
+        logger: Logger
     ) throws -> some Service {
         let health = HealthService()
 
@@ -28,8 +31,8 @@ enum GRPCService {
             ],
             interceptors: [
                 ServerOTelTracingInterceptor(reader: reader.scoped(to: "otel")),
-                // TODO: ServerMetricsInterceptor(),
-                // TODO: ServerLoggingInterceptor()
+                ServerOTelMetricsInterceptor(reader: reader.scoped(to: "otel")),
+                ServerOTelLoggingInterceptor(reader: reader.scoped(to: "otel"), logger: logger),
             ]
         )
     }
@@ -54,6 +57,29 @@ extension ServerOTelTracingInterceptor {
             serverHostname: snapshot.requiredString(forKey: "serverHostname"),
             networkTransportMethod: snapshot.string(forKey: "transportMethod", default: "tcp"),
             traceEachMessage: snapshot.bool(forKey: "traceEachMessage", default: true),
+            includeRequestMetadata: snapshot.bool(forKey: "includeRequestMetadata", default: false),
+            includeResponseMetadata: snapshot.bool(forKey: "includeResponseMetadata", default: false)
+        )
+    }
+}
+
+extension ServerOTelMetricsInterceptor {
+    fileprivate init(reader: ConfigReader) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
+        )
+    }
+}
+
+extension ServerOTelLoggingInterceptor {
+    fileprivate init(reader: ConfigReader, logger: Logger) throws {
+        let snapshot = reader.snapshot()
+        try self.init(
+            logger: logger,
+            serverHostname: snapshot.requiredString(forKey: "serverHostname"),
+            networkTransportMethod: .init(rawValue: snapshot.string(forKey: "transportMethod", default: "tcp")),
             includeRequestMetadata: snapshot.bool(forKey: "includeRequestMetadata", default: false),
             includeResponseMetadata: snapshot.bool(forKey: "includeResponseMetadata", default: false)
         )

@@ -35,6 +35,10 @@ let package = Package(
         .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.2.0"),
         .package(url: "https://github.com/grpc/grpc-swift-protobuf.git", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.33.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.9.0"),
+        .package(url: "https://github.com/apple/swift-metrics.git", from: "2.7.0"),
+        .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.3.0"),
+        .package(url: "https://github.com/swift-otel/swift-otel-semantic-conventions.git", from: "1.39.0"),
     ],
     targets: [
         // OpenAPI
@@ -77,7 +81,12 @@ let package = Package(
         .target(
             name: "GRPCShared",
             dependencies: [
-                .product(name: "SwiftProtobuf", package: "swift-protobuf", condition: .when(traits: ["GRPC"])),  
+                .product(name: "SwiftProtobuf", package: "swift-protobuf", condition: .when(traits: ["GRPC"])),
+                .product(name: "GRPCCore", package: "grpc-swift-2", condition: .when(traits: ["GRPC"])),
+                .product(name: "Logging", package: "swift-log", condition: .when(traits: ["GRPC"])),
+                .product(name: "Metrics", package: "swift-metrics", condition: .when(traits: ["GRPC"])),
+                .product(name: "Tracing", package: "swift-distributed-tracing", condition: .when(traits: ["GRPC"])),
+                .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions", condition: .when(traits: ["GRPC"])),
             ],
             exclude: [
                 "proto/",
@@ -91,6 +100,10 @@ let package = Package(
                 .target(name: "GRPCShared", condition: .when(traits: ["GRPCClient"])),
                 .product(name: "GRPCCore", package: "grpc-swift-2", condition: .when(traits: ["GRPCClient"])),
                 .product(name: "GRPCProtobuf", package: "grpc-swift-protobuf", condition: .when(traits: ["GRPCClient"])),
+                .product(name: "Logging", package: "swift-log", condition: .when(traits: ["GRPCClient"])),
+                .product(name: "Metrics", package: "swift-metrics", condition: .when(traits: ["GRPCClient"])),
+                .product(name: "Tracing", package: "swift-distributed-tracing", condition: .when(traits: ["GRPCClient"])),
+                .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions", condition: .when(traits: ["GRPCClient"])),
             ],
             exclude: [
                 "proto/",

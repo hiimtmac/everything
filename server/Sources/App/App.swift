@@ -3,7 +3,7 @@ import ServiceLifecycle
 import SystemPackage
 
 @main
-struct Server {
+struct App {
     static func main() async throws {
         let reader = try await ConfigReader(providers: [
             CommandLineArgumentsProvider(),

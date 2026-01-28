@@ -17,8 +17,16 @@ func buildServiceGroup(
     let logLevel = reader.string(forKey: "log.level", as: Logger.Level.self, default: .info)
 
     // GRPC
-    let orderService = try GRPCService.orderSerivce(reader: reader.scoped(to: "order"))
-    let customerService = try GRPCService.customerService(reader: reader.scoped(to: "customer"))
+    var grpcLogger = Logger(label: "grpc")
+    grpcLogger.logLevel = logLevel
+    let orderService = try GRPCService.orderSerivce(
+        reader: reader.scoped(to: "order"), 
+        logger: grpcLogger
+    )
+    let customerService = try GRPCService.customerService(
+        reader: reader.scoped(to: "customer"), 
+        logger: grpcLogger
+    )
 
     // Server
     let router = try buildRouter(
