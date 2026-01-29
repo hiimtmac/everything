@@ -1,6 +1,7 @@
 ---
-# Raspberry Pi k3s Cluster Inventory
-# Update the ansible_host values with your actual Pi IP addresses
+# Raspberry Pi k3s Cluster Inventory (EXAMPLE)
+# Copy this to hosts.local.yaml and update with your actual IPs
+# Usage: ansible-playbook -i inventory/hosts.local.yaml playbook.yaml
 
 all:
   vars:
@@ -10,13 +11,13 @@ all:
       children:
         k3s_server:
           hosts:
-            pi-master:
-              ansible_host: 192.168.1.100  # UPDATE: Control plane Pi IP
+            pi-control:
+              ansible_host: 192.168.x.x
         k3s_agents:
           hosts:
             pi-worker-1:
-              ansible_host: 192.168.1.101  # UPDATE: Worker 1 Pi IP
+              ansible_host: 192.168.x.x
             pi-worker-2:
-              ansible_host: 192.168.1.102  # UPDATE: Worker 2 Pi IP
+              ansible_host: 192.168.x.x
             pi-worker-3:
-              ansible_host: 192.168.1.103  # UPDATE: Worker 3 Pi IP
+              ansible_host: 192.168.x.x

@@ -1,4 +1,4 @@
-.PHONY: help deps ping setup install reset check
+.PHONY: help deps ping setup install reset check update
 
 help:
 	@echo "Raspberry Pi k3s Cluster Management"
@@ -11,6 +11,7 @@ help:
 	@echo "  check    Dry-run full setup (no changes)"
 	@echo "  setup    Full setup: prepare nodes + install k3s"
 	@echo "  install  Install k3s only (nodes already prepared)"
+	@echo "  update   Update system packages (one node at a time)"
 	@echo "  reset    Tear down cluster (DESTRUCTIVE)"
 	@echo ""
 
@@ -31,3 +32,6 @@ install:
 
 reset:
 	ansible-playbook playbooks/k3s-reset.yaml
+
+update:
+	ansible-playbook playbooks/update.yaml

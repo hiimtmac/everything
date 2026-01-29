@@ -1,6 +1,6 @@
 ---
 # k3s Configuration
-k3s_version: "v1.35.0+k3s1"  # Check https://github.com/k3s-io/k3s/releases for latest
+k3s_version: "v1.35.0+k3s1" # Check https://github.com/k3s-io/k3s/releases for latest
 
 # Cluster settings
 cluster_name: "everything"
@@ -17,7 +17,7 @@ k3s_server_extra_args: >-
 k3s_agent_extra_args: ""
 
 # System settings
-timezone: "America/New_York"  # UPDATE: Your timezone
+timezone: "America/Winnipeg" # UPDATE: Your timezone
 
 # Package requirements (minimal set for k3s operation)
 required_packages:

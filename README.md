@@ -133,71 +133,6 @@ https://www.youtube.com/watch?v=yo-7ipiQwNs @17
 
 https://www.youtube.com/watch?v=HSxIFLsoODc @12
 
-### Cluster Setup
-
-#### Phase 1: Prepare Raspberry Pis
-
-**Flash SD Cards** (using Raspberry Pi Imager):
-
-- OS: Raspberry Pi OS Lite (64-bit)
-- Configure via imager settings:
-  - Hostnames: `k3s-control`, `k3s-node-1`, `k3s-node-2`, `k3s-node-3`
-  - Enable SSH with key authentication
-  - Set username/password (e.g., `pi`)
-  - Configure WiFi or use Ethernet (Ethernet recommended for stability)
-
-**Find Node IPs:**
-
-```bash
-nmap -sn 192.168.1.0/24
-# or check router admin page for connected devices
-```
-
-#### Phase 2: Install k3s with Ansible
-
-k3s-ansible automates cluster provisioning:
-
-```bash
-git clone https://github.com/k3s-io/k3s-ansible.git
-cd k3s-ansible
-```
-
-**Configure `inventory/hosts.ini`:**
-
-```ini
-[master]
-192.168.1.10 ansible_user=pi
-
-[node]
-192.168.1.11 ansible_user=pi
-192.168.1.12 ansible_user=pi
-192.168.1.13 ansible_user=pi
-
-[k3s_cluster:children]
-master
-node
-```
-
-**Setup SSH keys:**
-
-```bash
-ssh-copy-id pi@192.168.1.10  # Repeat for each node
-```
-
-**Deploy cluster:**
-
-```bash
-ansible-playbook site.yml -i inventory/hosts.ini
-```
-
-**Get kubeconfig:**
-
-```bash
-scp pi@192.168.1.10:~/.kube/config ~/.kube/config
-# Edit config: replace 127.0.0.1 with control plane IP (192.168.1.10)
-kubectl get nodes  # Verify cluster
-```
-
 **Internal Communication (ClusterIP):**
 
 TODO
@@ -207,12 +142,6 @@ TODO
 TODO/TBD
 
 ### Resource Management
-
-**Raspberry Pi 4 Capacity (8GB model):**
-
-- Can run 10-30+ lightweight pods per node
-- Reserve ~2GB for system (OS, k3s, kernel)
-- Available per node: ~6GB for workloads
 
 **Pod Resource Requests:**
 

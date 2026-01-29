@@ -6,3 +6,6 @@
 
 # Log files
 *.log
+
+# Local inventory with real IPs
+inventory/hosts.local.yaml
