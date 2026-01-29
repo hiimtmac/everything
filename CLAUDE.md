@@ -34,7 +34,7 @@ All code MUST enable strict concurrency checking:
 ### Infrastructure
 
 - **Database:** PostgreSQL
-- **Cache/Queue:** Valkey
+- **Cache/Queue:** Valkey (single instance, key prefix isolation: `server:*`, `order:*`, `customer:*`)
 - **Event Streaming:** Kafka
 - **Workflow Engine:** Temporal
 - **Observability:** OpenTelemetry → Prometheus + Grafana
@@ -74,9 +74,22 @@ This system is deployed on a 4-node Raspberry Pi 4 cluster running k3s. All Swif
 
 **Cluster Topology:**
 
-- 1 control plane node (also runs workloads)
-- 3 worker nodes
-- All 4 nodes participate in running pods (k3s default behavior)
+- 1 control plane node (runs Postgres/Kafka via Docker Compose)
+- 3 worker nodes (run k8s application workloads)
+
+### Infrastructure Split
+
+Stateful data stores run outside k8s to simplify operations and mirror production patterns (where these would be managed services like RDS, MSK, Temporal Cloud).
+
+**Control node (Docker Compose via Ansible):**
+- Postgres
+- Kafka
+
+**k8s cluster (worker nodes):**
+- Swift services (server, order-service, customer-service)
+- Valkey (ephemeral cache)
+- Temporal server + UI
+- Observability stack (OTEL collector, Prometheus, Grafana)
 
 ### Containerization
 
@@ -84,20 +97,42 @@ All Swift services are containerized with multi-stage builds
 
 ### Infrastructure Deployment
 
-Infrastructure components use Helm charts for simplified deployment and lifecycle management.
+**Control node:** Ansible installs Docker and manages docker-compose.yml
+
+**k8s workloads:** kubectl/kustomize for application deployments
 
 #### PostgreSQL
 
 **Database-per-Service Pattern:**
 
-- Deploy separate PostgreSQL instances for Order Service and Customer Service
-- Each service owns its database schema
+- Single PostgreSQL instance with separate databases (`order_db`, `customer_db`)
+- Each service connects to its own database with its own user
 - No cross-database joins (use gRPC or Kafka for cross-service data)
+- Coordinate connection pool sizes across services to stay under `max_connections`
+- Simulates having separate RDS instances in production
 
 #### Kafka
 
-Event streaming for asynchronous communication between services
+Event streaming for asynchronous communication between services. In production: would use managed service (MSK, Confluent Cloud) or dedicated cluster with Strimzi operator.
 
 #### Temporal
 
-Workflow orchestration engine for Order Service
+Workflow orchestration engine for Order Service. Runs in k8s, connects to Postgres on control node. In production: would use Temporal Cloud.
+
+#### Connecting k8s to Infrastructure
+
+Postgres and Kafka run on `pi-control` via Docker Compose. k8s pods connect using:
+
+- **ExternalName Service**: Create k8s Service with `type: ExternalName` pointing to `pi-control`
+- **Direct IP**: Use control node IP from `ansible/inventory/hosts.local.yaml`
+
+**Endpoints:**
+- Postgres: `pi-control:5432`
+- Kafka: `pi-control:9094` (external listener)
+
+**Postgres credentials** (defined in `ansible/roles/docker-infra/files/init-db.sql`):
+- `order_service` user → `order_db` database
+- `customer_service` user → `customer_db` database
+- `temporal` user → `temporal` + `temporal_visibility` databases
+
+See README.md "Connecting k8s to Infrastructure" section for full k8s manifest examples.

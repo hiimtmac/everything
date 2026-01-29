@@ -1,0 +1,43 @@
+---
+# Deploy/update infrastructure containers (Postgres, Kafka)
+# Usage: ansible-playbook playbooks/infrastructure.yaml
+#
+# Prerequisites: Run 'make docker-setup' first to install Docker
+#
+# In production, these would be managed services (RDS, MSK, Temporal Cloud)
+# or run in dedicated k8s clusters with operators (CloudNativePG, Strimzi)
+
+- name: Deploy infrastructure containers
+  hosts: k3s_server
+  become: true
+  roles:
+    - docker-infra
+
+- name: Verify infrastructure is running
+  hosts: k3s_server
+  become: true
+  tasks:
+    - name: Wait for Postgres to be ready
+      community.docker.docker_container_info:
+        name: everything-postgres
+      register: postgres_info
+      until: postgres_info.container.State.Health.Status == "healthy"
+      retries: 12
+      delay: 5
+
+    - name: Wait for Kafka to be ready
+      community.docker.docker_container_info:
+        name: everything-kafka
+      register: kafka_info
+      until: kafka_info.container.State.Health.Status == "healthy"
+      retries: 12
+      delay: 10
+
+    - name: Display infrastructure status
+      ansible.builtin.debug:
+        msg: |
+          Infrastructure running on {{ inventory_hostname }}:
+            - Postgres: {{ ansible_host }}:5432
+            - Kafka: {{ ansible_host }}:9094 (external)
+
+          k8s services connect via ExternalName or direct IP.

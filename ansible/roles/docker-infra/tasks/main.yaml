@@ -1,0 +1,30 @@
+---
+# Deploy infrastructure containers (Postgres, Kafka)
+# Assumes Docker is already installed via the 'docker' role
+
+- name: Copy docker-compose file
+  ansible.builtin.copy:
+    src: docker-compose.yaml
+    dest: /opt/everything/docker-compose.yaml
+    mode: "0644"
+  register: compose_file
+
+- name: Copy Postgres init script
+  ansible.builtin.copy:
+    src: init-db.sql
+    dest: /opt/everything/init-db.sql
+    mode: "0644"
+  register: init_script
+
+- name: Start infrastructure services
+  community.docker.docker_compose_v2:
+    project_src: /opt/everything
+    state: present
+    pull: missing
+  register: compose_result
+
+- name: Restart services if config changed
+  community.docker.docker_compose_v2:
+    project_src: /opt/everything
+    state: restarted
+  when: compose_file.changed or init_script.changed
