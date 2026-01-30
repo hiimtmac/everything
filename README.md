@@ -58,102 +58,40 @@ Family Members (iOS apps - iOS 26)
     └─────────────┘
 ```
 
-### Infrastructure Split
+### Cluster Architecture
 
-Stateful data stores run outside k8s on the control node via Docker Compose. Application workloads run in k8s on worker nodes. This mirrors production patterns where databases would be managed services (RDS, MSK, etc.) or run in dedicated clusters.
+All workloads run in k8s on the Raspberry Pi cluster. Stateful services (Postgres, Kafka) run as StatefulSets with persistent storage, while stateless application services run as Deployments.
 
 ```
-pi-control (Docker Compose)           pi-worker-1/2/3 (k8s cluster)
-┌──────────────────────────┐          ┌──────────────────────────┐
-│ postgres:5432            │          │ server                   │
-│ kafka:9092               │◄────────►│ order-service            │
-│                          │          │ customer-service         │
-│                          │          │ valkey                   │
-│ Managed via Ansible      │          │ temporal + temporal-ui   │
-│                          │          │ otel-collector           │
-│                          │          │ prometheus               │
-│                          │          │ grafana                  │
-└──────────────────────────┘          └──────────────────────────┘
+pi-control + pi-worker-1/2/3 (k8s cluster)
+┌──────────────────────────────────────────┐
+│ StatefulSets:                            │
+│   postgres (PVC-backed)                  │
+│   kafka (PVC-backed)                     │
+│                                          │
+│ Deployments:                             │
+│   server                                 │
+│   order-service                          │
+│   customer-service                       │
+│   valkey                                 │
+│   temporal + temporal-ui                 │
+│   otel-collector                         │
+│   prometheus                             │
+│   grafana                                │
+└──────────────────────────────────────────┘
 ```
 
-**Why this split:**
+**Benefits of unified k8s deployment:**
 
-| Outside k8s (Docker Compose) | Inside k8s | Reason |
-|------------------------------|------------|--------|
-| Postgres | | Persistent data, complex to manage in k8s |
-| Kafka | | Persistent message log, complex clustering |
-| | Valkey | Ephemeral cache, can lose data on restart |
-| | Temporal | Stateless - its state lives in Postgres |
-| | Swift services | Stateless apps |
-| | Observability | Semi-stateful, acceptable to lose on restart |
+- Single deployment system (kubectl/kustomize)
+- Consistent networking (all services in-cluster)
+- Simplified service discovery (DNS-based)
+- Unified resource management and monitoring
 
 **In production**, Postgres and Kafka would typically be:
+
 - Managed services (AWS RDS, MSK, Confluent Cloud, Temporal Cloud)
 - Or run in dedicated k8s clusters with operators (CloudNativePG, Strimzi)
-
-Running stateful workloads in k8s is complex (PersistentVolumes, StatefulSets, operators for failover/backups). For learning application-layer k8s patterns, keeping data stores outside simplifies things.
-
-**Note on data durability:** Docker Compose on the control node still requires backups for real durability. If the node's SD card dies, data is lost. Use `pg_dump` to external storage for backups.
-
-### Connecting k8s to Infrastructure
-
-k8s pods connect to Postgres/Kafka on the control node using ExternalName services or direct IP. The control node hostname is `pi-control` (or use the IP from `ansible/inventory/hosts.local.yaml`).
-
-**Infrastructure Endpoints:**
-
-| Service | Port | Usage |
-|---------|------|-------|
-| Postgres | 5432 | `pi-control:5432` |
-| Kafka | 9094 | `pi-control:9094` (external listener) |
-
-**Option 1: ExternalName Service (recommended)**
-
-```yaml
-# k8s/base/external-services.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: everything
-spec:
-  type: ExternalName
-  externalName: pi-control  # or IP: 192.168.x.x
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kafka
-  namespace: everything
-spec:
-  type: ExternalName
-  externalName: pi-control
-```
-
-Pods then connect via `postgres:5432` and `kafka:9094` as if they were in-cluster services.
-
-**Option 2: Environment Variables**
-
-```yaml
-# In deployment spec
-env:
-  - name: DATABASE_HOST
-    value: "pi-control"  # or ConfigMap reference
-  - name: DATABASE_PORT
-    value: "5432"
-  - name: KAFKA_BOOTSTRAP_SERVERS
-    value: "pi-control:9094"
-```
-
-**Postgres Connection (per-service credentials):**
-
-| Service | Database | User | Password |
-|---------|----------|------|----------|
-| order-service | `order_db` | `order_service` | `order_service` |
-| customer-service | `customer_db` | `customer_service` | `customer_service` |
-| temporal | `temporal` | `temporal` | `temporal` |
-| temporal (visibility) | `temporal_visibility` | `temporal` | `temporal` |
-
-Credentials are set in `ansible/roles/docker-infra/files/init-db.sql`.
 
 ### Protocol Boundaries
 
@@ -188,12 +126,12 @@ Credentials are set in `ansible/roles/docker-infra/files/init-db.sql`.
 
 **Backend:** Swift 6.2 with strict concurrency
 **HTTP Server:** Hummingbird
-**Database:** PostgreSQL (single instance, database-per-service isolation - simulates separate RDS instances)
+**Database:** PostgreSQL (StatefulSet, database-per-service isolation)
 **Cache/Queue:** Valkey (single instance, key prefix isolation: `server:*`, `order:*`, `customer:*`)
-**Event Streaming:** Kafka
+**Event Streaming:** Kafka (StatefulSet)
 **Workflows:** Temporal SDK
 **Observability:** OpenTelemetry → Prometheus → Grafana
-**Deployment:** k3s cluster + Docker Compose (managed via Ansible)
+**Deployment:** k3s cluster managed via Ansible + kubectl/kustomize
 
 ## Example Flow
 
@@ -212,7 +150,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed architectural decisions and development 
 ### Prerequisites
 
 - Swift 6.2 toolchain
-- Docker and Docker Compose
+- Docker (for local development)
 - Homebrew (for code generation tools)
 
 ```bash
@@ -255,64 +193,53 @@ TODO/TBD
 
 ### Deployment Workflow
 
-Infrastructure and application deployments are managed separately:
+All deployments are managed via kubectl/kustomize:
 
 ```bash
-# Infrastructure changes (Postgres, Kafka on control node)
-ansible-playbook ansible/playbooks/infrastructure.yml
-
-# Application changes (k8s workloads)
+# Deploy all k8s workloads
 kubectl apply -k k8s/
 ```
 
-**Ansible manages the control node:**
-- Installs Docker
-- Deploys docker-compose.yml for Postgres/Kafka
-- Handles infrastructure updates
+**Ansible manages the cluster nodes:**
 
-**kubectl/kustomize manages k8s:**
-- Swift services, Valkey, Temporal, observability stack
-- ConfigMaps, Secrets, Services, Deployments
+- Installs k3s on control plane and worker nodes
+- Configures node preparation (packages, settings)
 
-This separation mirrors production where infrastructure teams manage data stores and application teams deploy via CI/CD to k8s.
+**kubectl/kustomize manages all workloads:**
+
+- StatefulSets: Postgres, Kafka
+- Deployments: Swift services, Valkey, Temporal, observability stack
+- ConfigMaps, Secrets, Services, PersistentVolumeClaims
 
 ### Resource Management
 
-**Control Node (~906MB total):**
+**k8s Pod Resource Requests (distributed across nodes):**
 
-| Component | Memory Limit | CPU Limit |
-|-----------|--------------|-----------|
-| Postgres | 192MB | 0.5 |
-| Kafka (KRaft) | 192MB | 0.5 |
-| k3s control plane | ~300MB | - |
-| System/OS | ~100MB | - |
-| **Headroom** | **~120MB** | - |
-
-**k8s Pod Resource Requests (worker nodes):**
-
-- server: 64Mi memory, 100m CPU (lightweight, stateless)
-- order-service: 64Mi memory, 100m CPU (Temporal client, workflows)
-- customer-service: 64Mi memory, 100m CPU (Kafka consumers)
-- valkey: 128Mi memory, 100m CPU
-- temporal: 256Mi memory, 250m CPU
-- otel-collector: 64Mi memory, 100m CPU
-- prometheus: 256Mi memory, 250m CPU
-- grafana: 128Mi memory, 100m CPU
+| Component        | Memory  | CPU   | Type        |
+| ---------------- | ------- | ----- | ----------- |
+| postgres         | 192Mi   | 0.5   | StatefulSet |
+| kafka            | 192Mi   | 0.5   | StatefulSet |
+| server           | 64Mi    | 100m  | Deployment  |
+| order-service    | 64Mi    | 100m  | Deployment  |
+| customer-service | 64Mi    | 100m  | Deployment  |
+| valkey           | 128Mi   | 100m  | Deployment  |
+| temporal         | 256Mi   | 250m  | Deployment  |
+| otel-collector   | 64Mi    | 100m  | Deployment  |
+| prometheus       | 256Mi   | 250m  | Deployment  |
+| grafana          | 128Mi   | 100m  | Deployment  |
 
 **Total Cluster Capacity (4 nodes x 4 CPU, ~906MB each):** 16 CPU cores, ~3.5GB usable memory
-
-With Postgres/Kafka on control node (~384MB), all 3 worker nodes (~2.7GB total) are available for application workloads.
 
 **Postgres Connection Pool Configuration:**
 
 With a shared Postgres instance, coordinate pool sizes across services to stay under `max_connections` (default 100):
 
-| Service | Pool Size | Reason |
-|---------|-----------|--------|
-| Order Service | 5-10 | Temporal workflows, main writes |
-| Customer Service | 5-10 | Kafka consumer, stats updates |
-| Temporal | 10-20 | Workflow state persistence |
-| Reserve | ~60 | Headroom, admin connections |
+| Service          | Pool Size | Reason                          |
+| ---------------- | --------- | ------------------------------- |
+| Order Service    | 5-10      | Temporal workflows, main writes |
+| Customer Service | 5-10      | Kafka consumer, stats updates   |
+| Temporal         | 10-20     | Workflow state persistence      |
+| Reserve          | ~60       | Headroom, admin connections     |
 
 Each service connects to its own database:
 

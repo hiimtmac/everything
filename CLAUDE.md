@@ -33,9 +33,9 @@ All code MUST enable strict concurrency checking:
 
 ### Infrastructure
 
-- **Database:** PostgreSQL
+- **Database:** PostgreSQL (k8s StatefulSet)
 - **Cache/Queue:** Valkey (single instance, key prefix isolation: `server:*`, `order:*`, `customer:*`)
-- **Event Streaming:** Kafka
+- **Event Streaming:** Kafka (k8s StatefulSet)
 - **Workflow Engine:** Temporal
 - **Observability:** OpenTelemetry → Prometheus + Grafana
 - **Container Orchestration:** k3s (local cluster)
@@ -69,23 +69,22 @@ This system is deployed on a 4-node Raspberry Pi 4 cluster running k3s. All Swif
 
 - **4x Raspberry Pi 4**
 - **Networking:** Gigabit Ethernet
-- **Storage:** MicroSD cards
+- **Storage:** MicroSD cards + PersistentVolumes for stateful workloads
 - **k3s:** Lightweight Kubernetes distribution optimized for ARM/edge devices
 
 **Cluster Topology:**
 
-- 1 control plane node (runs Postgres/Kafka via Docker Compose)
-- 3 worker nodes (run k8s application workloads)
+- 1 control plane node
+- 3 worker nodes
+- All workloads (including Postgres/Kafka) run as k8s resources
 
-### Infrastructure Split
+### Workload Types
 
-Stateful data stores run outside k8s to simplify operations and mirror production patterns (where these would be managed services like RDS, MSK, Temporal Cloud).
+**StatefulSets (persistent data):**
+- Postgres (with PVC)
+- Kafka (with PVC)
 
-**Control node (Docker Compose via Ansible):**
-- Postgres
-- Kafka
-
-**k8s cluster (worker nodes):**
+**Deployments (stateless/ephemeral):**
 - Swift services (server, order-service, customer-service)
 - Valkey (ephemeral cache)
 - Temporal server + UI
@@ -97,15 +96,17 @@ All Swift services are containerized with multi-stage builds
 
 ### Infrastructure Deployment
 
-**Control node:** Ansible installs Docker and manages docker-compose.yml
+All workloads are deployed via kubectl/kustomize:
 
-**k8s workloads:** kubectl/kustomize for application deployments
+```bash
+kubectl apply -k k8s/
+```
 
 #### PostgreSQL
 
 **Database-per-Service Pattern:**
 
-- Single PostgreSQL instance with separate databases (`order_db`, `customer_db`)
+- Single PostgreSQL StatefulSet with separate databases (`order_db`, `customer_db`)
 - Each service connects to its own database with its own user
 - No cross-database joins (use gRPC or Kafka for cross-service data)
 - Coordinate connection pool sizes across services to stay under `max_connections`
@@ -113,26 +114,24 @@ All Swift services are containerized with multi-stage builds
 
 #### Kafka
 
-Event streaming for asynchronous communication between services. In production: would use managed service (MSK, Confluent Cloud) or dedicated cluster with Strimzi operator.
+Event streaming for asynchronous communication between services. Runs as a StatefulSet in k8s. In production: would use managed service (MSK, Confluent Cloud) or dedicated cluster with Strimzi operator.
 
 #### Temporal
 
-Workflow orchestration engine for Order Service. Runs in k8s, connects to Postgres on control node. In production: would use Temporal Cloud.
+Workflow orchestration engine for Order Service. Runs as a Deployment in k8s. In production: would use Temporal Cloud.
 
-#### Connecting k8s to Infrastructure
+#### Service Discovery
 
-Postgres and Kafka run on `pi-control` via Docker Compose. k8s pods connect using:
+All services communicate via in-cluster DNS:
 
-- **ExternalName Service**: Create k8s Service with `type: ExternalName` pointing to `pi-control`
-- **Direct IP**: Use control node IP from `ansible/inventory/hosts.local.yaml`
+- `postgres:5432` - PostgreSQL service
+- `kafka:9092` - Kafka bootstrap server
+- `order-service:50051` - Order Service gRPC
+- `customer-service:50051` - Customer Service gRPC
 
-**Endpoints:**
-- Postgres: `pi-control:5432`
-- Kafka: `pi-control:9094` (external listener)
-
-**Postgres credentials** (defined in `ansible/roles/docker-infra/files/init-db.sql`):
+**Postgres credentials** (defined in k8s Secrets):
 - `order_service` user → `order_db` database
 - `customer_service` user → `customer_db` database
 - `temporal` user → `temporal` + `temporal_visibility` databases
 
-See README.md "Connecting k8s to Infrastructure" section for full k8s manifest examples.
+See README.md for full architecture details.
