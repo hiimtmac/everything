@@ -1,0 +1,112 @@
+# Default values for order service.
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/hiimtmac/everything
+  tag: order
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 50051
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Native Kubernetes gRPC health probes (requires K8s 1.24+)
+livenessProbe:
+  grpc:
+    port: 50051
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  grpc:
+    port: 50051
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application configuration
+config:
+  grpc:
+    host: "0.0.0.0"
+    port: 50051
+  log:
+    level: info
+  otel:
+    serverHost: ""
+    serverPort: 4317
+    clientHost: ""
+    clientTransportMethod: tcp
+
+# PostgreSQL configuration
+postgres:
+  # Use an existing secret for credentials (recommended for production)
+  existingSecret: ""
+  # Or create a secret from values (for development)
+  createSecret: false
+  host: "postgres"
+  port: 5432
+  database: "order_db"
+  username: "order_service"
+  password: ""
+
+# Database migration configuration
+migration:
+  enabled: true
+  # Additional args passed to migrate command
+  args: ["-y"]
+
+# External service dependencies
+dependencies:
+  customerService:
+    host: ""
+    port: 50051
+  temporal:
+    host: ""
+    port: 7233
+    namespace: "default"
+  valkey:
+    host: ""
+    port: 6379
+  kafka:
+    bootstrapServers: ""
