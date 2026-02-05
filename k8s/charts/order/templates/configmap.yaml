@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "order.fullname" . }}
+  labels:
+    {{- include "order.labels" . | nindent 4 }}
+data:
+  # gRPC server configuration
+  GRPC_HOST: {{ .Values.config.grpc.host | quote }}
+  GRPC_PORT: {{ .Values.config.grpc.port | quote }}
+
+  # Logging
+  LOG_LEVEL: {{ .Values.config.log.level | quote }}
+
+  # PostgreSQL (non-sensitive)
+  POSTGRES_HOST: {{ .Values.postgres.host | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.port | quote }}
+  POSTGRES_DATABASE: {{ .Values.postgres.database | quote }}
+
+  # Customer service
+  {{- if .Values.dependencies.customerService.host }}
+  CUSTOMER_HOST: {{ .Values.dependencies.customerService.host | quote }}
+  {{- end }}
+  CUSTOMER_PORT: {{ .Values.dependencies.customerService.port | quote }}
+
+  # Temporal
+  {{- if .Values.dependencies.temporal.host }}
+  TEMPORAL_HOST: {{ .Values.dependencies.temporal.host | quote }}
+  {{- end }}
+  TEMPORAL_PORT: {{ .Values.dependencies.temporal.port | quote }}
+  TEMPORAL_NAMESPACE: {{ .Values.dependencies.temporal.namespace | quote }}
+
+  # Valkey cache
+  {{- if .Values.dependencies.valkey.host }}
+  VALKEY_HOST: {{ .Values.dependencies.valkey.host | quote }}
+  {{- end }}
+  VALKEY_PORT: {{ .Values.dependencies.valkey.port | quote }}
+
+  # Kafka
+  {{- if .Values.dependencies.kafka.bootstrapServers }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.dependencies.kafka.bootstrapServers | quote }}
+  {{- end }}
+
+  # OpenTelemetry
+  {{- if .Values.config.otel.serverHost }}
+  OTEL_SERVER_HOST: {{ .Values.config.otel.serverHost | quote }}
+  {{- end }}
+  OTEL_SERVER_PORT: {{ .Values.config.otel.serverPort | quote }}
+  {{- if .Values.config.otel.clientHost }}
+  OTEL_CLIENT_HOST: {{ .Values.config.otel.clientHost | quote }}
+  {{- end }}
+  OTEL_CLIENT_TRANSPORT_METHOD: {{ .Values.config.otel.clientTransportMethod | quote }}

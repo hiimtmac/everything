@@ -1,0 +1,6 @@
+apiVersion: v2
+name: customer
+description: Swift gRPC customer service for the Everything coffee ordering system
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
