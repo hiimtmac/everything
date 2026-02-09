@@ -1,0 +1,77 @@
+# Server Service - Common Configuration
+# Shared settings across all environments (staging, prod)
+# Note: {{ .Environment.Name }} resolves to the helmfile environment (staging / prod)
+
+image:
+  repository: ghcr.io/hiimtmac/everything/server
+  pullPolicy: IfNotPresent
+  tag: latest
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# All static non-sensitive config → ConfigMap via chart values
+otel:
+  serviceName: "server"
+
+orderService:
+  host: "order.{{ .Environment.Name }}.svc.cluster.local"
+
+customerService:
+  host: "customer.{{ .Environment.Name }}.svc.cluster.local"
+
+valkey:
+  keyPrefix: "{{ .Environment.Name }}:server"
+
+# No secrets — env: is empty (server has no DB credentials)
+env: []
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Worker node affinity — merges with prod.yaml podAntiAffinity via Helm deep merge
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist

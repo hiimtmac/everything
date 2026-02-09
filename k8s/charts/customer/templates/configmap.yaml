@@ -5,35 +5,30 @@ metadata:
   labels:
     {{- include "customer.labels" . | nindent 4 }}
 data:
-  # gRPC server configuration
-  GRPC_HOST: {{ .Values.config.grpc.host | quote }}
-  GRPC_PORT: {{ .Values.config.grpc.port | quote }}
+  # gRPC server bind address
+  GRPC_TRANSPORT_HOST: {{ .Values.config.grpc.host | quote }}
+  GRPC_TRANSPORT_PORT: {{ .Values.config.grpc.port | quote }}
+  GRPC_OTEL_SERVER_HOSTNAME: {{ .Values.config.grpc.otel.serverHostname | quote }}
 
   # Logging
   LOG_LEVEL: {{ .Values.config.log.level | quote }}
+
+  # OpenTelemetry
+  OTEL_HOST: {{ .Values.otel.host | quote }}
+  OTEL_SERVICE_NAME: {{ .Values.otel.serviceName | quote }}
 
   # PostgreSQL (non-sensitive)
   POSTGRES_HOST: {{ .Values.postgres.host | quote }}
   POSTGRES_PORT: {{ .Values.postgres.port | quote }}
   POSTGRES_DATABASE: {{ .Values.postgres.database | quote }}
+  POSTGRES_USERNAME: {{ .Values.postgres.username | quote }}
 
-  # Valkey cache
-  {{- if .Values.dependencies.valkey.host }}
-  VALKEY_HOST: {{ .Values.dependencies.valkey.host | quote }}
-  {{- end }}
-  VALKEY_PORT: {{ .Values.dependencies.valkey.port | quote }}
+  # Valkey
+  VALKEY_HOST: {{ .Values.valkey.host | quote }}
+  VALKEY_PORT: {{ .Values.valkey.port | quote }}
+  VALKEY_KEY_PREFIX: {{ .Values.valkey.keyPrefix | quote }}
 
   # Kafka
-  {{- if .Values.dependencies.kafka.bootstrapServers }}
-  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.dependencies.kafka.bootstrapServers | quote }}
-  {{- end }}
-
-  # OpenTelemetry
-  {{- if .Values.config.otel.serverHost }}
-  OTEL_SERVER_HOST: {{ .Values.config.otel.serverHost | quote }}
-  {{- end }}
-  OTEL_SERVER_PORT: {{ .Values.config.otel.serverPort | quote }}
-  {{- if .Values.config.otel.clientHost }}
-  OTEL_CLIENT_HOST: {{ .Values.config.otel.clientHost | quote }}
-  {{- end }}
-  OTEL_CLIENT_TRANSPORT_METHOD: {{ .Values.config.otel.clientTransportMethod | quote }}
+  KAFKA_HOST: {{ .Values.kafka.host | quote }}
+  KAFKA_PORT: {{ .Values.kafka.port | quote }}
+  KAFKA_TOPIC_PREFIX: {{ .Values.kafka.topicPrefix | quote }}

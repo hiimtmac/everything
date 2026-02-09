@@ -40,8 +40,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "order.fullname" . }}
-            - secretRef:
-                name: {{ include "order.postgresSecretName" . }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

@@ -58,40 +58,6 @@ Family Members (iOS apps - iOS 26)
     └─────────────┘
 ```
 
-### Cluster Architecture
-
-All workloads run in k8s on the Raspberry Pi cluster. Stateful services (Postgres, Kafka) run as StatefulSets with persistent storage, while stateless application services run as Deployments.
-
-```
-pi-control + pi-worker-1/2/3 (k8s cluster)
-┌──────────────────────────────────────────┐
-│ StatefulSets:                            │
-│   postgres (PVC-backed)                  │
-│   kafka (PVC-backed)                     │
-│                                          │
-│ Deployments:                             │
-│   server                                 │
-│   order-service                          │
-│   customer-service                       │
-│   valkey                                 │
-│   temporal + temporal-ui                 │
-│   otel-collector                         │
-│   prometheus                             │
-│   grafana                                │
-└──────────────────────────────────────────┘
-```
-
-**Benefits of unified k8s deployment:**
-
-- Single deployment system (kubectl/kustomize)
-- Consistent networking (all services in-cluster)
-- Simplified service discovery (DNS-based)
-- Unified resource management and monitoring
-
-**In production**, Postgres and Kafka would typically be:
-
-- Managed services (AWS RDS, MSK, Confluent Cloud, Temporal Cloud)
-- Or run in dedicated k8s clusters with operators (CloudNativePG, Strimzi)
 
 ### Protocol Boundaries
 
@@ -183,105 +149,23 @@ https://www.youtube.com/watch?v=yo-7ipiQwNs @17
 
 https://www.youtube.com/watch?v=HSxIFLsoODc @12
 
-**Internal Communication (ClusterIP):**
+## Deployment
 
-TODO
+All services run on a 4-node Raspberry Pi 4 cluster managed by k3s. The entire system (infrastructure, monitoring, and applications) is deployed using Helmfile.
 
-### External Access (Tailscale)
-
-TODO/TBD
-
-### Deployment Workflow
-
-All deployments are managed via kubectl/kustomize:
+**Quick start:**
 
 ```bash
-# Deploy all k8s workloads
-kubectl apply -k k8s/
+cd k8s
+make deps          # Install helmfile and plugins
+make secrets       # Create Kubernetes secrets
+make build-all     # Build Docker images
+make deploy-all    # Deploy infrastructure + monitoring + staging
 ```
 
-**Ansible manages the cluster nodes:**
+**Hardware:**
+- 4× Raspberry Pi 4 (4GB RAM each)
+- k3s cluster (1 control plane + 3 workers)
+- Total capacity: ~3.5GB usable memory, 16 CPU cores
 
-- Installs k3s on control plane and worker nodes
-- Configures node preparation (packages, settings)
-
-**kubectl/kustomize manages all workloads:**
-
-- StatefulSets: Postgres, Kafka
-- Deployments: Swift services, Valkey, Temporal, observability stack
-- ConfigMaps, Secrets, Services, PersistentVolumeClaims
-
-### Resource Management
-
-**k8s Pod Resource Requests (distributed across nodes):**
-
-| Component        | Memory  | CPU   | Type        |
-| ---------------- | ------- | ----- | ----------- |
-| postgres         | 192Mi   | 0.5   | StatefulSet |
-| kafka            | 192Mi   | 0.5   | StatefulSet |
-| server           | 64Mi    | 100m  | Deployment  |
-| order-service    | 64Mi    | 100m  | Deployment  |
-| customer-service | 64Mi    | 100m  | Deployment  |
-| valkey           | 128Mi   | 100m  | Deployment  |
-| temporal         | 256Mi   | 250m  | Deployment  |
-| otel-collector   | 64Mi    | 100m  | Deployment  |
-| prometheus       | 256Mi   | 250m  | Deployment  |
-| grafana          | 128Mi   | 100m  | Deployment  |
-
-**Total Cluster Capacity (4 nodes x 4 CPU, ~906MB each):** 16 CPU cores, ~3.5GB usable memory
-
-**Postgres Connection Pool Configuration:**
-
-With a shared Postgres instance, coordinate pool sizes across services to stay under `max_connections` (default 100):
-
-| Service          | Pool Size | Reason                          |
-| ---------------- | --------- | ------------------------------- |
-| Order Service    | 5-10      | Temporal workflows, main writes |
-| Customer Service | 5-10      | Kafka consumer, stats updates   |
-| Temporal         | 10-20     | Workflow state persistence      |
-| Reserve          | ~60       | Headroom, admin connections     |
-
-Each service connects to its own database:
-
-```swift
-let pool = PostgresClient(
-    configuration: .init(
-        host: "postgres",
-        username: "order_service",
-        password: "...",
-        database: "order_db"  // each service has its own database
-    ),
-    connectionPoolConfiguration: .init(
-        minimumConnections: 1,
-        maximumConnections: 10  // coordinate across services
-    )
-)
-```
-
-**Scaling Strategy:**
-
-- Start with 2-3 replicas per service
-- Use Horizontal Pod Autoscaler (HPA) for dynamic scaling
-- Monitor with Prometheus, scale based on CPU/memory metrics
-
-**Example Trace Flow:**
-
-```
-iOS App → Hummingbird → Order Service → Customer Service → Temporal Workflow
-   ↓          ↓              ↓                ↓                    ↓
-  OTel → OTel Collector ← OTel ← ────────── OTel ← ──────────── OTel
-                ↓
-         Prometheus + Tempo
-                ↓
-             Grafana
-```
-
-**ClusterIP Services act as internal load balancers:**
-
-```
-Hummingbird Pod → http://order-service:50051
-                        ↓ (round-robin)
-                    ┌─────┴─────┐
-                    ↓           ↓
-            order-pod-1   order-pod-2
-```
+For detailed deployment instructions, troubleshooting, and resource management, see [k8s/README.md](k8s/README.md).

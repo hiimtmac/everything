@@ -1,0 +1,84 @@
+# Kafka Configuration for Everything Infrastructure
+# Bitnami Kafka Chart: https://github.com/bitnami/charts/tree/main/bitnami/kafka
+
+# KRaft Mode (no Zookeeper)
+# Single broker configuration for home lab
+controller:
+  replicaCount: 1
+
+  # Resource Limits (Raspberry Pi constraints)
+  resources:
+    limits:
+      cpu: 500m
+      memory: 192Mi
+    requests:
+      cpu: 250m
+      memory: 192Mi
+
+  # Persistence
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 4Gi
+
+  # Node Scheduling: run on control plane to simulate an external managed service
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+# Broker configuration is handled by controller in KRaft mode
+broker:
+  replicaCount: 0
+
+# Listeners Configuration
+# PLAINTEXT protocol (internal cluster only - no external access needed)
+listeners:
+  client:
+    protocol: PLAINTEXT
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+
+# Service Configuration
+service:
+  type: ClusterIP
+  ports:
+    client: 9092
+
+# Kafka Configuration
+kraft:
+  enabled: true
+
+# Topic Auto-Creation
+autoCreateTopicsEnable: true
+defaultReplicationFactor: 1
+numPartitions: 3
+
+# Kafka Settings
+logRetentionHours: 168  # 7 days
+logSegmentBytes: 1073741824  # 1GB
+
+# JVM Settings (conservative for Raspberry Pi)
+heapOpts: "-Xmx128m -Xms128m"
+
+# Monitoring
+metrics:
+  jmx:
+    enabled: true
+  kafka:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: infra
+    interval: 30s
+    labels:
+      release: kube-prometheus-stack

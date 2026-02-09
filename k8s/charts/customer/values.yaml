@@ -60,9 +60,7 @@ readinessProbe:
   failureThreshold: 3
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
 
 # Application configuration
@@ -70,36 +68,36 @@ config:
   grpc:
     host: "0.0.0.0"
     port: 50051
+    otel:
+      serverHostname: "customer"
   log:
     level: info
-  otel:
-    serverHost: ""
-    serverPort: 4317
-    clientHost: ""
-    clientTransportMethod: tcp
 
-# PostgreSQL configuration
+# Database migration configuration
+migration:
+  enabled: true
+  args: ["-y"]
+
+# External service connections
+otel:
+  host: "otel-collector.monitoring.svc.cluster.local"
+  serviceName: "customer-service"
+
 postgres:
-  # Use an existing secret for credentials (recommended for production)
   existingSecret: ""
-  # Or create a secret from values (for development)
   createSecret: false
-  host: "postgres"
+  host: "postgresql.infra.svc.cluster.local"
   port: 5432
   database: "customer_db"
   username: "customer_service"
   password: ""
 
-# Database migration configuration
-migration:
-  enabled: true
-  # Additional args passed to migrate command
-  args: ["-y"]
+valkey:
+  host: "valkey-master.infra.svc.cluster.local"
+  port: 6379
+  keyPrefix: ""
 
-# External service dependencies
-dependencies:
-  valkey:
-    host: ""
-    port: 6379
-  kafka:
-    bootstrapServers: ""
+kafka:
+  host: "kafka.infra.svc.cluster.local"
+  port: 9092
+  topicPrefix: ""

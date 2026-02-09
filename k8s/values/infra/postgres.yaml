@@ -1,0 +1,108 @@
+# PostgreSQL Configuration for Everything Infrastructure
+# Bitnami PostgreSQL Chart: https://github.com/bitnami/charts/tree/main/bitnami/postgresql
+
+# Architecture: Single standalone instance for home lab
+architecture: standalone
+
+# Resource Limits (Raspberry Pi constraints)
+resources:
+  limits:
+    cpu: 500m
+    memory: 192Mi
+  requests:
+    cpu: 250m
+    memory: 192Mi
+
+# PostgreSQL Authentication
+auth:
+  # Master postgres credentials (from secret)
+  existingSecret: postgres-credentials
+  secretKeys:
+    adminPasswordKey: postgres-password
+
+# Primary Configuration
+primary:
+  # Persistence Configuration
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 8Gi
+
+  # Database-per-Service Pattern
+  # Creates separate databases with dedicated users
+  # Passwords are injected via initdb.scriptsSecret (postgres-service-credentials)
+  initdb:
+    scriptsSecret: postgres-service-credentials
+    scripts:
+      init.sh: |
+        #!/bin/bash
+        set -euo pipefail
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+          -- Order Service Databases (per-environment)
+          CREATE DATABASE order_db_staging;
+          CREATE DATABASE order_db_prod;
+          CREATE USER order_service_staging WITH PASSWORD '${ORDER_SERVICE_STAGING_PASSWORD}';
+          CREATE USER order_service_prod WITH PASSWORD '${ORDER_SERVICE_PROD_PASSWORD}';
+          GRANT ALL PRIVILEGES ON DATABASE order_db_staging TO order_service_staging;
+          GRANT ALL PRIVILEGES ON DATABASE order_db_prod TO order_service_prod;
+
+          -- Customer Service Databases (per-environment)
+          CREATE DATABASE customer_db_staging;
+          CREATE DATABASE customer_db_prod;
+          CREATE USER customer_service_staging WITH PASSWORD '${CUSTOMER_SERVICE_STAGING_PASSWORD}';
+          CREATE USER customer_service_prod WITH PASSWORD '${CUSTOMER_SERVICE_PROD_PASSWORD}';
+          GRANT ALL PRIVILEGES ON DATABASE customer_db_staging TO customer_service_staging;
+          GRANT ALL PRIVILEGES ON DATABASE customer_db_prod TO customer_service_prod;
+
+          -- Temporal Workflow Engine Databases
+          -- Shared between staging and prod; isolation via temporal workflow namespaces
+          CREATE DATABASE temporal;
+          CREATE DATABASE temporal_visibility;
+          CREATE USER temporal WITH PASSWORD '${TEMPORAL_PASSWORD}';
+          GRANT ALL PRIVILEGES ON DATABASE temporal TO temporal;
+          GRANT ALL PRIVILEGES ON DATABASE temporal_visibility TO temporal;
+        EOSQL
+
+  # Connection Pool Settings
+  # Total max_connections=100 to stay within Pi memory limits
+  # Allocations:
+  #   - Order staging + prod: 5 conns each = 10
+  #   - Customer staging + prod: 5 conns each = 10
+  #   - Temporal: 30 conns (20 default + 10 visibility, shared across envs)
+  #   - Reserved: ~50 for admin, migrations, monitoring
+  extendedConfiguration: |
+    max_connections = 100
+    shared_buffers = 32MB
+    effective_cache_size = 128MB
+    maintenance_work_mem = 16MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 2MB
+    default_statistics_target = 100
+    random_page_cost = 4
+    effective_io_concurrency = 2
+    work_mem = 1MB
+    min_wal_size = 1GB
+    max_wal_size = 2GB
+
+# Node Scheduling: run on control plane to simulate an external managed service
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+# Monitoring
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: infra
+    interval: 30s
+    labels:
+      release: kube-prometheus-stack

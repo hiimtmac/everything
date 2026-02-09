@@ -1,0 +1,25 @@
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: opentelemetry-helm
+    url: https://open-telemetry.github.io/opentelemetry-helm-charts
+
+releases:
+  # OpenTelemetry Collector (Deployment)
+  - name: otel-collector
+    namespace: monitoring
+    chart: opentelemetry-helm/opentelemetry-collector
+    values:
+      - ./values/monitoring/otel.yaml
+    createNamespace: true
+
+  # Prometheus + Grafana (Deployment)
+  - name: kube-prometheus-stack
+    namespace: monitoring
+    chart: prometheus-community/kube-prometheus-stack
+    version: 81.5.0
+    values:
+      - ./values/monitoring/prometheus.yaml
+    needs:
+      - monitoring/otel-collector
+    createNamespace: true

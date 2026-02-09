@@ -1,0 +1,27 @@
+releases:
+  # HTTP Server (Hummingbird)
+  - name: server
+    namespace: {{ .Environment.Name }}
+    chart: ./charts/server
+    values:
+      - ./values/apps/server/common.yaml
+      - ./values/apps/server/{{ .Environment.Name }}.yaml
+    createNamespace: true
+
+  # Order gRPC Service
+  - name: order
+    namespace: {{ .Environment.Name }}
+    chart: ./charts/order
+    values:
+      - ./values/apps/order/common.yaml
+      - ./values/apps/order/{{ .Environment.Name }}.yaml
+    createNamespace: true
+
+  # Customer gRPC Service
+  - name: customer
+    namespace: {{ .Environment.Name }}
+    chart: ./charts/customer
+    values:
+      - ./values/apps/customer/common.yaml
+      - ./values/apps/customer/{{ .Environment.Name }}.yaml
+    createNamespace: true

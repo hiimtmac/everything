@@ -5,48 +5,47 @@ metadata:
   labels:
     {{- include "order.labels" . | nindent 4 }}
 data:
-  # gRPC server configuration
-  GRPC_HOST: {{ .Values.config.grpc.host | quote }}
-  GRPC_PORT: {{ .Values.config.grpc.port | quote }}
+  # gRPC server bind address
+  GRPC_TRANSPORT_HOST: {{ .Values.config.grpc.host | quote }}
+  GRPC_TRANSPORT_PORT: {{ .Values.config.grpc.port | quote }}
+  GRPC_TRACING_SERVER_HOSTNAME: {{ .Values.config.grpc.tracing.serverHostname | quote }}
+  GRPC_METRICS_SERVER_HOSTNAME: {{ .Values.config.grpc.metrics.serverHostname | quote }}
+  GRPC_LOGGING_SERVER_HOSTNAME: {{ .Values.config.grpc.logging.serverHostname | quote }}
 
   # Logging
   LOG_LEVEL: {{ .Values.config.log.level | quote }}
+
+  # OpenTelemetry
+  OTEL_HOST: {{ .Values.otel.host | quote }}
+  OTEL_SERVICE_NAME: {{ .Values.otel.serviceName | quote }}
+
+  # Customer gRPC client
+  CUSTOMER_SERVICE_HOST: {{ .Values.customerService.host | quote }}
+  CUSTOMER_SERVICE_PORT: {{ .Values.customerService.port | quote }}
+  CUSTOMER_TRACING_SERVER_HOSTNAME: {{ .Values.customerService.tracing.serverHostname | quote }}
+  CUSTOMER_METRICS_SERVER_HOSTNAME: {{ .Values.customerService.metrics.serverHostname | quote }}
+  CUSTOMER_LOGGING_SERVER_HOSTNAME: {{ .Values.customerService.logging.serverHostname | quote }}
 
   # PostgreSQL (non-sensitive)
   POSTGRES_HOST: {{ .Values.postgres.host | quote }}
   POSTGRES_PORT: {{ .Values.postgres.port | quote }}
   POSTGRES_DATABASE: {{ .Values.postgres.database | quote }}
-
-  # Customer service
-  {{- if .Values.dependencies.customerService.host }}
-  CUSTOMER_HOST: {{ .Values.dependencies.customerService.host | quote }}
-  {{- end }}
-  CUSTOMER_PORT: {{ .Values.dependencies.customerService.port | quote }}
+  POSTGRES_USERNAME: {{ .Values.postgres.username | quote }}
 
   # Temporal
-  {{- if .Values.dependencies.temporal.host }}
-  TEMPORAL_HOST: {{ .Values.dependencies.temporal.host | quote }}
-  {{- end }}
-  TEMPORAL_PORT: {{ .Values.dependencies.temporal.port | quote }}
-  TEMPORAL_NAMESPACE: {{ .Values.dependencies.temporal.namespace | quote }}
+  TEMPORAL_CLIENT_HOST: {{ .Values.temporal.host | quote }}
+  TEMPORAL_CLIENT_PORT: {{ .Values.temporal.port | quote }}
+  TEMPORAL_WORKER_HOST: {{ .Values.temporal.host | quote }}
+  TEMPORAL_WORKER_PORT: {{ .Values.temporal.port | quote }}
+  TEMPORAL_CLIENT_NAMESPACE: {{ .Values.temporal.namespace | quote }}
+  TEMPORAL_WORKER_NAMESPACE: {{ .Values.temporal.namespace | quote }}
 
-  # Valkey cache
-  {{- if .Values.dependencies.valkey.host }}
-  VALKEY_HOST: {{ .Values.dependencies.valkey.host | quote }}
-  {{- end }}
-  VALKEY_PORT: {{ .Values.dependencies.valkey.port | quote }}
+  # Valkey
+  VALKEY_HOST: {{ .Values.valkey.host | quote }}
+  VALKEY_PORT: {{ .Values.valkey.port | quote }}
+  VALKEY_KEY_PREFIX: {{ .Values.valkey.keyPrefix | quote }}
 
   # Kafka
-  {{- if .Values.dependencies.kafka.bootstrapServers }}
-  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.dependencies.kafka.bootstrapServers | quote }}
-  {{- end }}
-
-  # OpenTelemetry
-  {{- if .Values.config.otel.serverHost }}
-  OTEL_SERVER_HOST: {{ .Values.config.otel.serverHost | quote }}
-  {{- end }}
-  OTEL_SERVER_PORT: {{ .Values.config.otel.serverPort | quote }}
-  {{- if .Values.config.otel.clientHost }}
-  OTEL_CLIENT_HOST: {{ .Values.config.otel.clientHost | quote }}
-  {{- end }}
-  OTEL_CLIENT_TRANSPORT_METHOD: {{ .Values.config.otel.clientTransportMethod | quote }}
+  KAFKA_HOST: {{ .Values.kafka.host | quote }}
+  KAFKA_PORT: {{ .Values.kafka.port | quote }}
+  KAFKA_TOPIC_PREFIX: {{ .Values.kafka.topicPrefix | quote }}

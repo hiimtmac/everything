@@ -1,0 +1,161 @@
+# Temporal Workflow Engine Configuration for Everything Infrastructure
+# Official Temporal Helm Chart: https://github.com/temporalio/helm-charts
+
+# PostgreSQL Backend (external, shared postgres instance)
+cassandra:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+# Server Configuration
+server:
+  replicaCount: 1
+
+  # Resource Limits (Raspberry Pi constraints)
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Service Configuration
+  service:
+    type: ClusterIP
+    port: 7233
+
+  # Persistence Configuration (external PostgreSQL)
+  config:
+    persistence:
+      default:
+        driver: "sql"
+        sql:
+          driver: "postgres12"
+          host: "postgresql.infra.svc.cluster.local"
+          port: 5432
+          database: "temporal"
+          user: "temporal"
+          existingSecret: "temporal-credentials"
+          secretName: "temporal-credentials"
+          secretKey: "password"
+          maxConns: 20
+          maxIdleConns: 10
+          maxConnLifetime: "1h"
+
+      visibility:
+        driver: "sql"
+        sql:
+          driver: "postgres12"
+          host: "postgresql.infra.svc.cluster.local"
+          port: 5432
+          database: "temporal_visibility"
+          user: "temporal"
+          existingSecret: "temporal-credentials"
+          secretName: "temporal-credentials"
+          secretKey: "password"
+          maxConns: 10
+          maxIdleConns: 5
+          maxConnLifetime: "1h"
+
+# Node Scheduling: run on control plane to simulate an external managed service
+# Applied per-component as the temporal chart does not support top-level affinity
+_controlPlaneAffinity: &controlPlaneAffinity
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+# Frontend Service (gRPC API)
+frontend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  <<: *controlPlaneAffinity
+
+# History Service (workflow execution)
+history:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  <<: *controlPlaneAffinity
+
+# Matching Service (task queue matching)
+matching:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  <<: *controlPlaneAffinity
+
+# Worker Service (internal workflows)
+worker:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  <<: *controlPlaneAffinity
+
+# Schema Setup (automatic migrations)
+schema:
+  setup:
+    enabled: true
+    backoffLimit: 10
+  update:
+    enabled: true
+    backoffLimit: 10
+
+# Web UI
+web:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+  <<: *controlPlaneAffinity
+
+# Monitoring
+# Temporal exports Prometheus metrics by default on port 9090
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: infra
+    interval: 30s
+    labels:
+      release: kube-prometheus-stack

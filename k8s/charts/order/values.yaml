@@ -60,9 +60,7 @@ readinessProbe:
   failureThreshold: 3
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
 
 # Application configuration
@@ -70,43 +68,55 @@ config:
   grpc:
     host: "0.0.0.0"
     port: 50051
+    tracing:
+      serverHostname: "order"
+    metrics:
+      serverHostname: "order"
+    logging:
+      serverHostname: "order"
   log:
     level: info
-  otel:
-    serverHost: ""
-    serverPort: 4317
-    clientHost: ""
-    clientTransportMethod: tcp
 
-# PostgreSQL configuration
+# Database migration configuration
+migration:
+  enabled: true
+  args: ["-y"]
+
+# External service connections
+otel:
+  host: "otel-collector.monitoring.svc.cluster.local"
+  serviceName: "order-service"
+
 postgres:
-  # Use an existing secret for credentials (recommended for production)
   existingSecret: ""
-  # Or create a secret from values (for development)
   createSecret: false
-  host: "postgres"
+  host: "postgresql.infra.svc.cluster.local"
   port: 5432
   database: "order_db"
   username: "order_service"
   password: ""
 
-# Database migration configuration
-migration:
-  enabled: true
-  # Additional args passed to migrate command
-  args: ["-y"]
+customerService:
+  host: ""
+  port: 50051
+  tracing:
+    serverHostname: "customer"
+  metrics:
+    serverHostname: "customer"
+  logging:
+    serverHostname: "customer"
 
-# External service dependencies
-dependencies:
-  customerService:
-    host: ""
-    port: 50051
-  temporal:
-    host: ""
-    port: 7233
-    namespace: "default"
-  valkey:
-    host: ""
-    port: 6379
-  kafka:
-    bootstrapServers: ""
+temporal:
+  host: "temporal-frontend.infra.svc.cluster.local"
+  port: 7233
+  namespace: "default"
+
+valkey:
+  host: "valkey-master.infra.svc.cluster.local"
+  port: 6379
+  keyPrefix: ""
+
+kafka:
+  host: "kafka.infra.svc.cluster.local"
+  port: 9092
+  topicPrefix: ""

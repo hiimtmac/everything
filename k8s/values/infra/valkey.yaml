@@ -1,0 +1,69 @@
+# Valkey (Redis) Configuration for Everything Infrastructure
+# Bitnami Valkey Chart: https://github.com/bitnami/charts/tree/main/bitnami/valkey
+
+# Architecture: Standalone, no persistence (cache only)
+architecture: standalone
+
+# Authentication
+# No auth required (internal cluster only)
+auth:
+  enabled: false
+
+# Master Configuration
+master:
+  # Resource Limits (Raspberry Pi constraints)
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  # No persistence - ephemeral cache
+  persistence:
+    enabled: false
+
+  # Valkey Configuration
+  configuration: |
+    # Memory Management
+    maxmemory 128mb
+    maxmemory-policy allkeys-lru
+
+    # Persistence Disabled (cache only)
+    save ""
+    appendonly no
+
+    # Performance
+    tcp-backlog 128
+    timeout 0
+    tcp-keepalive 300
+
+    # Key Prefix Isolation
+    # Services use prefixes: server:*, order:*, customer:*
+    # No isolation enforced at Valkey level - client responsibility
+
+  # Service Configuration
+  service:
+    type: ClusterIP
+    ports:
+      redis: 6379
+
+  # Node Scheduling: run on workers alongside apps (ephemeral cache, not a stateful managed service)
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+# Monitoring
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: infra
+    interval: 30s
+    labels:
+      release: kube-prometheus-stack

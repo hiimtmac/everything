@@ -1,0 +1,212 @@
+# Prometheus + Grafana Stack Configuration for Everything Monitoring
+# kube-prometheus-stack Chart: https://github.com/prometheus-community/helm-charts
+
+# Prometheus Configuration
+# Node Scheduling: run on worker nodes alongside apps
+# nodeExporter intentionally excluded — it runs as a DaemonSet on all nodes
+
+prometheus:
+  enabled: true
+
+  prometheusSpec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+    # Resource Limits (Raspberry Pi constraints)
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Storage Configuration
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+    # ServiceMonitor Selection
+    # Automatically discovers ServiceMonitors with this label
+    serviceMonitorSelector:
+      matchLabels:
+        release: kube-prometheus-stack
+
+    # Additional Scrape Configurations
+    # Scrape OpenTelemetry Collector Prometheus endpoint
+    additionalScrapeConfigs:
+      - job_name: 'otel-collector'
+        static_configs:
+          - targets: ['otel-collector.monitoring.svc.cluster.local:8889']
+        scrape_interval: 30s
+        scrape_timeout: 10s
+
+# Grafana Configuration
+grafana:
+  enabled: true
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+  # Admin Credentials
+  adminPassword: admin  # Change in production!
+
+  # Resource Limits (Raspberry Pi constraints)
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  # Storage Configuration
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 1Gi
+
+  # Datasources
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://kube-prometheus-stack-prometheus:9090
+          access: proxy
+          isDefault: true
+          jsonData:
+            timeInterval: 30s
+
+  # Dashboard Providers
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+        - name: 'everything'
+          orgId: 1
+          folder: 'Everything'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/everything
+
+  # Service Configuration
+  service:
+    type: ClusterIP
+    port: 80
+
+# AlertManager Configuration
+alertmanager:
+  enabled: true
+
+  alertmanagerSpec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+    # Resource Limits (Raspberry Pi constraints)
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        cpu: 25m
+        memory: 64Mi
+
+    # Storage Configuration
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+
+# Node Exporter (metrics from cluster nodes)
+nodeExporter:
+  enabled: true
+  resources:
+    limits:
+      cpu: 50m
+      memory: 32Mi
+    requests:
+      cpu: 25m
+      memory: 32Mi
+
+# Kube State Metrics (k8s object metrics)
+kube-state-metrics:
+  enabled: true
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+  resources:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 25m
+      memory: 64Mi
+
+# Prometheus Operator
+prometheusOperator:
+  enabled: true
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Default Rules (alerts and recording rules)
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false  # k3s doesn't expose etcd metrics
+    kubeApiserver: true
+    kubePrometheusNodeRecording: true
+    kubernetesResources: true
+    node: true
+    prometheus: true
